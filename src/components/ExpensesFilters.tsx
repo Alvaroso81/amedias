@@ -53,7 +53,10 @@ export function ExpensesFilters({
           >
             <option value="">Todas</option>
             {categories.map((category) => (
-              <option value={category.id ?? ''} key={category.id ?? category.name}>
+              <option
+                value={category.id ?? `name:${category.name}`}
+                key={category.id ?? category.name}
+              >
                 {category.icon} {category.name}
               </option>
             ))}

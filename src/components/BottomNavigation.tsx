@@ -12,6 +12,7 @@ type BottomNavigationProps = {
   onAddExpense: () => void
   onGoExpenses: () => void
   onGoHome: () => void
+  onGoStatistics: () => void
   onGoSettings: () => void
 }
 
@@ -20,6 +21,7 @@ export function BottomNavigation({
   onAddExpense,
   onGoExpenses,
   onGoHome,
+  onGoStatistics,
   onGoSettings,
 }: BottomNavigationProps) {
   const [home, expenses, statistics, settings] = navigationItems
@@ -40,7 +42,11 @@ export function BottomNavigation({
       >
         <span aria-hidden="true">+</span>
       </button>
-      <NavItem {...statistics} />
+      <NavItem
+        {...statistics}
+        active={currentPage === 'statistics'}
+        onClick={onGoStatistics}
+      />
       <NavItem
         {...settings}
         active={isSettingsSection}

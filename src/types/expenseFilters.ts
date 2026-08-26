@@ -11,3 +11,10 @@ export const emptyExpenseFilters: ExpenseFilters = {
   category: '',
   expenseType: 'all',
 }
+
+export type StatisticsExpenseFilter = {
+  categoryId: string | null
+  categoryName: string
+  periodMode: 'month' | 'year' | 'history'
+  anchorDate: string
+}

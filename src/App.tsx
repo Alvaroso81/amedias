@@ -1,7 +1,8 @@
 import type { User } from '@supabase/supabase-js'
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { AppStatusScreen } from './components/AppStatusScreen'
+import { ExpenseDataState } from './components/ExpenseDataState'
 import { PendingInviteGate } from './components/PendingInviteGate'
 import { SettlementDialog } from './components/SettlementDialog'
 import { useAuth } from './hooks/useAuth'
@@ -20,9 +21,14 @@ import { deleteExpense } from './services/expenses'
 import { deleteSettlement } from './services/settlements'
 import { supabase } from './services/supabase'
 import type { HouseholdRole } from './types/household'
+import type { StatisticsExpenseFilter } from './types/expenseFilters'
 import type { AppPage } from './types/navigation'
 import type { SettlementDirection } from './types/settlement'
 import { capturePendingInviteToken, clearPendingInviteToken } from './utils/pendingInvite'
+
+const StatisticsPage = lazy(() =>
+  import('./pages/StatisticsPage').then((module) => ({ default: module.StatisticsPage })),
+)
 
 function App() {
   const { user, loading, error } = useAuth()
@@ -192,10 +198,15 @@ function ExpenseApp({
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null)
   const [settlementNotice, setSettlementNotice] = useState<string | null>(null)
   const [settlementDialog, setSettlementDialog] = useState<SettlementDialogState | null>(null)
+  const [statisticsExpenseFilter, setStatisticsExpenseFilter] =
+    useState<StatisticsExpenseFilter | null>(null)
   const selectedExpense = expenses.find((expense) => expense.id === selectedExpenseId)
   const selectedSettlement = settlements.find(
     (settlement) => settlement.id === selectedSettlementId,
   )
+  const expensesPageKey = statisticsExpenseFilter
+    ? `${statisticsExpenseFilter.periodMode}-${statisticsExpenseFilter.anchorDate}-${statisticsExpenseFilter.categoryId ?? statisticsExpenseFilter.categoryName}`
+    : 'expenses-standard'
 
   useEffect(() => {
     if (!expenseNotice) return
@@ -221,7 +232,13 @@ function ExpenseApp({
   const goToExpenses = () => {
     setExpenseNotice(null)
     setSelectedExpenseId(null)
+    setStatisticsExpenseFilter(null)
     setCurrentPage('expenses')
+  }
+  const goToStatistics = () => {
+    setExpenseNotice(null)
+    setSettlementNotice(null)
+    setCurrentPage('statistics')
   }
   const goToSettings = () => {
     setExpenseNotice(null)
@@ -319,12 +336,14 @@ function ExpenseApp({
   } else if (currentPage === 'expenses') {
     pageContent = (
       <ExpensesPage
+        key={expensesPageKey}
         expenses={expenses}
         members={members}
         loading={loading}
         error={error}
         onRetry={() => void refresh()}
         onSelectExpense={openExpense}
+        statisticsFilter={statisticsExpenseFilter}
       />
     )
   } else if (currentPage === 'add-expense') {
@@ -359,6 +378,34 @@ function ExpenseApp({
         onSignOut={onSignOut}
         onViewSettlements={goToSettlements}
       />
+    )
+  } else if (currentPage === 'statistics') {
+    pageContent = (
+      <Suspense
+        fallback={(
+          <div className="statistics-page">
+            <ExpenseDataState
+              loading
+              title="Abriendo estadísticas"
+              message="Estamos preparando el análisis del hogar…"
+            />
+          </div>
+        )}
+      >
+        <StatisticsPage
+          expenses={expenses}
+          members={members}
+          settlements={settlements}
+          loading={loading}
+          error={error}
+          onRetry={() => void refresh()}
+          onSelectCategory={(filter) => {
+            setStatisticsExpenseFilter(filter)
+            setSelectedExpenseId(null)
+            setCurrentPage('expenses')
+          }}
+        />
+      </Suspense>
     )
   } else if (currentPage === 'settlements') {
     pageContent = (
@@ -411,12 +458,14 @@ function ExpenseApp({
   } else {
     pageContent = (
       <ExpensesPage
+        key={expensesPageKey}
         expenses={expenses}
         members={members}
         loading={loading}
         error={error}
         onRetry={() => void refresh()}
         onSelectExpense={openExpense}
+        statisticsFilter={statisticsExpenseFilter}
       />
     )
   }
@@ -436,6 +485,7 @@ function ExpenseApp({
         }}
         onGoExpenses={goToExpenses}
         onGoHome={goHome}
+        onGoStatistics={goToStatistics}
         onGoSettings={goToSettings}
       >
         {pageContent}

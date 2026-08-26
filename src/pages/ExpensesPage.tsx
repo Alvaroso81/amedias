@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import { ExpenseHistoryList } from '../components/ExpenseHistoryList'
 import { ExpensesFilters } from '../components/ExpensesFilters'
-import { emptyExpenseFilters, type ExpenseFilters } from '../types/expenseFilters'
+import {
+  emptyExpenseFilters,
+  type ExpenseFilters,
+  type StatisticsExpenseFilter,
+} from '../types/expenseFilters'
 import type { ExpenseReadMember, ExpenseRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
 import { formatMonthYear, getMonthKey } from '../utils/formatDate'
@@ -14,6 +18,7 @@ type ExpensesPageProps = {
   error: string | null
   onRetry: () => void
   onSelectExpense: (expenseId: string) => void
+  statisticsFilter?: StatisticsExpenseFilter | null
 }
 
 function normalizeSearchValue(value: string) {
@@ -31,20 +36,42 @@ export function ExpensesPage({
   error,
   onRetry,
   onSelectExpense,
+  statisticsFilter,
 }: ExpensesPageProps) {
   const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (statisticsFilter) return new Date(`${statisticsFilter.anchorDate}T12:00:00`)
     const today = new Date()
     return new Date(today.getFullYear(), today.getMonth(), 1)
   })
+  const [periodMode, setPeriodMode] = useState<'month' | 'year' | 'history'>(
+    statisticsFilter?.periodMode ?? 'month',
+  )
+  const [showStatisticsContext, setShowStatisticsContext] = useState(Boolean(statisticsFilter))
   const [search, setSearch] = useState('')
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [draftFilters, setDraftFilters] = useState<ExpenseFilters>(emptyExpenseFilters)
-  const [appliedFilters, setAppliedFilters] = useState<ExpenseFilters>(emptyExpenseFilters)
+  const initialCategoryFilter = statisticsFilter
+    ? (statisticsFilter.categoryId ?? `name:${statisticsFilter.categoryName}`)
+    : ''
+  const [draftFilters, setDraftFilters] = useState<ExpenseFilters>({
+    ...emptyExpenseFilters,
+    category: initialCategoryFilter,
+  })
+  const [appliedFilters, setAppliedFilters] = useState<ExpenseFilters>({
+    ...emptyExpenseFilters,
+    category: initialCategoryFilter,
+  })
   const selectedMonthKey = getMonthKey(selectedMonth)
 
   const periodExpenses = useMemo(
-    () => expenses.filter((expense) => expense.expenseDate.startsWith(selectedMonthKey)),
-    [expenses, selectedMonthKey],
+    () =>
+      expenses.filter((expense) => {
+        if (periodMode === 'history') return true
+        if (periodMode === 'year') {
+          return expense.expenseDate.startsWith(String(selectedMonth.getFullYear()))
+        }
+        return expense.expenseDate.startsWith(selectedMonthKey)
+      }),
+    [expenses, periodMode, selectedMonth, selectedMonthKey],
   )
   const categories = useMemo(() => {
     const uniqueCategories = new Map(
@@ -69,7 +96,10 @@ export function ExpensesPage({
         appliedFilters.paidBy === 'all' ||
         expense.payments.some((payment) => payment.userId === appliedFilters.paidBy)
       const matchesCategory =
-        !appliedFilters.category || expense.categoryId === appliedFilters.category
+        !appliedFilters.category ||
+        (appliedFilters.category.startsWith('name:')
+          ? expense.category.name === appliedFilters.category.slice(5)
+          : expense.categoryId === appliedFilters.category)
       const matchesType =
         appliedFilters.expenseType === 'all' ||
         expense.expenseType === appliedFilters.expenseType
@@ -93,22 +123,38 @@ export function ExpensesPage({
   const changeMonth = (offset: number) => {
     setSelectedMonth(
       (currentMonth) =>
-        new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1),
+        periodMode === 'year'
+          ? new Date(currentMonth.getFullYear() + offset, currentMonth.getMonth(), 1)
+          : new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1),
     )
   }
+
+  const periodLabel =
+    periodMode === 'history'
+      ? 'Histórico'
+      : periodMode === 'year'
+        ? String(selectedMonth.getFullYear())
+        : formatMonthYear(selectedMonth)
 
   return (
     <div className="expenses-page">
       <header className="expenses-page-header">
         <h1>Gastos</h1>
-        <div className="month-selector" aria-label="Seleccionar mes">
-          <button type="button" aria-label="Mes anterior" onClick={() => changeMonth(-1)}>
-            ‹
-          </button>
-          <strong>{formatMonthYear(selectedMonth)}</strong>
-          <button type="button" aria-label="Mes siguiente" onClick={() => changeMonth(1)}>
-            ›
-          </button>
+        <div
+          className={`month-selector${periodMode === 'history' ? ' month-selector--history' : ''}`}
+          aria-label="Seleccionar periodo"
+        >
+          {periodMode !== 'history' && (
+            <button type="button" aria-label="Periodo anterior" onClick={() => changeMonth(-1)}>
+              ‹
+            </button>
+          )}
+          <strong>{periodLabel}</strong>
+          {periodMode !== 'history' && (
+            <button type="button" aria-label="Periodo siguiente" onClick={() => changeMonth(1)}>
+              ›
+            </button>
+          )}
         </div>
       </header>
 
@@ -132,10 +178,30 @@ export function ExpensesPage({
       ) : (
         <>
           <section className="card period-summary-card" aria-labelledby="period-total-title">
-            <p id="period-total-title">Total del mes</p>
+            <p id="period-total-title">Total del periodo</p>
             <strong>{formatCurrency(total)}</strong>
             <span>{periodExpenses.length} movimientos</span>
           </section>
+
+          {statisticsFilter && showStatisticsContext && (
+            <div className="statistics-filter-context" role="status">
+              <span>
+                Vista desde Estadísticas · {statisticsFilter.categoryName} · {periodLabel}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const today = new Date()
+                  setSelectedMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+                  setPeriodMode('month')
+                  setShowStatisticsContext(false)
+                  clearFilters()
+                }}
+              >
+                Quitar filtro
+              </button>
+            </div>
+          )}
 
           <div className="expenses-tools">
             <div className="expense-search-field">

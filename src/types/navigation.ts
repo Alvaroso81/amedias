@@ -6,4 +6,5 @@ export type AppPage =
   | 'expense-detail'
   | 'settlements'
   | 'settlement-detail'
+  | 'statistics'
   | 'settings'
