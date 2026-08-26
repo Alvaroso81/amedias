@@ -1,4 +1,5 @@
 export type PersonContribution = {
+  id?: string
   name: string
   amount: number
   percentage: number

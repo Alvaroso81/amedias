@@ -1,9 +1,9 @@
-import type { Expense } from '../types/finance'
+import type { SavedExpenseSummary } from '../types/expenseCreation'
 import { formatCurrency } from '../utils/formatCurrency'
 
 type ExpenseSavedConfirmationProps = {
-  expense: Expense
-  onUndo: () => void
+  expense: SavedExpenseSummary
+  onUndo?: () => void
 }
 
 export function ExpenseSavedConfirmation({
@@ -20,9 +20,11 @@ export function ExpenseSavedConfirmation({
         {formatCurrency(expense.amount)} · {expense.description}
       </p>
       <p className="saved-expense-payer">Pagado por {expense.paidBy}</p>
-      <button className="undo-button" type="button" onClick={onUndo}>
-        Deshacer
-      </button>
+      {onUndo && (
+        <button className="undo-button" type="button" onClick={onUndo}>
+          Deshacer
+        </button>
+      )}
     </section>
   )
 }

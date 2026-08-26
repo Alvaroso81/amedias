@@ -1,27 +1,35 @@
-import type { Expense } from '../types/finance'
+import type { ExpenseRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
 import { formatExpenseGroupDate } from '../utils/formatDate'
+import { getExpensePayerText } from '../utils/expensePresentation'
 
 type ExpenseHistoryListProps = {
-  expenses: Expense[]
+  expenses: ExpenseRecord[]
+  emptyTitle: string
+  emptyMessage: string
   onSelectExpense: (expenseId: string) => void
 }
 
-export function ExpenseHistoryList({ expenses, onSelectExpense }: ExpenseHistoryListProps) {
+export function ExpenseHistoryList({
+  expenses,
+  emptyTitle,
+  emptyMessage,
+  onSelectExpense,
+}: ExpenseHistoryListProps) {
   if (expenses.length === 0) {
     return (
       <div className="card empty-expenses-state">
         <span aria-hidden="true">⌕</span>
-        <h2>No hay gastos</h2>
-        <p>Prueba con otra búsqueda o limpia los filtros.</p>
+        <h2>{emptyTitle}</h2>
+        <p>{emptyMessage}</p>
       </div>
     )
   }
 
-  const groupedExpenses = expenses.reduce<Map<string, Expense[]>>((groups, expense) => {
-    const dateExpenses = groups.get(expense.date) ?? []
+  const groupedExpenses = expenses.reduce<Map<string, ExpenseRecord[]>>((groups, expense) => {
+    const dateExpenses = groups.get(expense.expenseDate) ?? []
     dateExpenses.push(expense)
-    groups.set(expense.date, dateExpenses)
+    groups.set(expense.expenseDate, dateExpenses)
     return groups
   }, new Map())
 
@@ -39,12 +47,12 @@ export function ExpenseHistoryList({ expenses, onSelectExpense }: ExpenseHistory
                 onClick={() => onSelectExpense(expense.id)}
               >
                 <span className="history-expense-icon" aria-hidden="true">
-                  {expense.icon}
+                  {expense.category.icon}
                 </span>
                 <span className="history-expense-copy">
                   <strong>{expense.description}</strong>
-                  <span>{expense.category}</span>
-                  <small>Pagó {expense.paidBy}</small>
+                  <span>{expense.category.name}</span>
+                  <small>{getExpensePayerText(expense)}</small>
                 </span>
                 <strong className="history-expense-amount">{formatCurrency(expense.amount)}</strong>
                 <span className="history-expense-chevron" aria-hidden="true">

@@ -1,0 +1,146 @@
+import type { User } from '@supabase/supabase-js'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase } from '../services/supabase'
+import type { UserProfile } from '../types/auth'
+import type { Household, HouseholdMembership, HouseholdRole } from '../types/household'
+
+type HouseholdState = {
+  profile: UserProfile | null
+  household: Household | null
+  membership: HouseholdMembership | null
+  loading: boolean
+  error: string | null
+}
+
+function getFallbackDisplayName(user: User) {
+  const metadataName = user.user_metadata.display_name
+
+  if (typeof metadataName === 'string' && metadataName.trim()) {
+    return metadataName.trim()
+  }
+
+  return user.email?.split('@')[0] || 'Usuario'
+}
+
+export function useHousehold(user: User) {
+  const requestId = useRef(0)
+  const [state, setState] = useState<HouseholdState>({
+    profile: null,
+    household: null,
+    membership: null,
+    loading: true,
+    error: null,
+  })
+
+  const reload = useCallback(async () => {
+    const currentRequest = ++requestId.current
+
+    setState((currentState) => ({ ...currentState, loading: true, error: null }))
+
+    try {
+      const [profileResult, membershipResult] = await Promise.all([
+        supabase.from('profiles').select('id, display_name').eq('id', user.id).maybeSingle(),
+        supabase
+          .from('household_members')
+          .select('household_id, user_id, role, default_share, joined_at')
+          .eq('user_id', user.id)
+          .order('joined_at', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+      if (currentRequest !== requestId.current) return
+
+      if (profileResult.error) {
+        setState((currentState) => ({
+          ...currentState,
+          loading: false,
+          error: 'No hemos podido cargar tu perfil.',
+        }))
+        return
+      }
+
+      if (membershipResult.error) {
+        setState((currentState) => ({
+          ...currentState,
+          loading: false,
+          error: 'No hemos podido comprobar si perteneces a un hogar.',
+        }))
+        return
+      }
+
+      const profile: UserProfile = profileResult.data
+        ? {
+            id: profileResult.data.id,
+            displayName: profileResult.data.display_name,
+          }
+        : {
+            id: user.id,
+            displayName: getFallbackDisplayName(user),
+          }
+
+      if (!membershipResult.data) {
+        setState({ profile, household: null, membership: null, loading: false, error: null })
+        return
+      }
+
+      const membershipRow = membershipResult.data
+      const householdResult = await supabase
+        .from('households')
+        .select('id, name, currency')
+        .eq('id', membershipRow.household_id)
+        .single()
+
+      if (currentRequest !== requestId.current) return
+
+      if (householdResult.error) {
+        setState({
+          profile,
+          household: null,
+          membership: null,
+          loading: false,
+          error: 'Hemos encontrado tu membresía, pero no hemos podido cargar el hogar.',
+        })
+        return
+      }
+
+      const role: HouseholdRole = membershipRow.role === 'owner' ? 'owner' : 'member'
+
+      setState({
+        profile,
+        household: {
+          id: householdResult.data.id,
+          name: householdResult.data.name,
+          currency: householdResult.data.currency,
+        },
+        membership: {
+          householdId: membershipRow.household_id,
+          userId: membershipRow.user_id,
+          role,
+          defaultShare: Number(membershipRow.default_share),
+        },
+        loading: false,
+        error: null,
+      })
+    } catch {
+      if (currentRequest !== requestId.current) return
+
+      setState((currentState) => ({
+        ...currentState,
+        loading: false,
+        error: 'No hemos podido conectar con tu hogar. Inténtalo de nuevo.',
+      }))
+    }
+  }, [user])
+
+  useEffect(() => {
+    const loadTimer = window.setTimeout(() => void reload(), 0)
+
+    return () => {
+      window.clearTimeout(loadTimer)
+      requestId.current += 1
+    }
+  }, [reload])
+
+  return { ...state, reload }
+}

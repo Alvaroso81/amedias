@@ -16,7 +16,7 @@ export function ExpenseSummary({ total, contributions }: ExpenseSummaryProps) {
 
       <div className="contribution-list">
         {contributions.map((contribution) => (
-          <div className="contribution" key={contribution.name}>
+          <div className="contribution" key={contribution.id ?? contribution.name}>
             <span className="contribution-name">{contribution.name}</span>
             <strong>{formatCurrency(contribution.amount)}</strong>
             <span>{contribution.percentage} %</span>
@@ -27,10 +27,19 @@ export function ExpenseSummary({ total, contributions }: ExpenseSummaryProps) {
       <div
         className="contribution-bar"
         role="img"
-        aria-label={`${contributions[0].name} aporta ${contributions[0].percentage} por ciento y ${contributions[1].name} aporta ${contributions[1].percentage} por ciento`}
+        aria-label={contributions
+          .map(
+            (contribution) =>
+              `${contribution.name} aporta ${contribution.percentage} por ciento`,
+          )
+          .join(' y ')}
       >
-        <span style={{ width: `${contributions[0].percentage}%` }} />
-        <span style={{ width: `${contributions[1].percentage}%` }} />
+        {contributions.map((contribution) => (
+          <span
+            key={contribution.id ?? contribution.name}
+            style={{ width: `${contribution.percentage}%` }}
+          />
+        ))}
       </div>
     </section>
   )

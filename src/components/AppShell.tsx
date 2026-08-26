@@ -8,6 +8,7 @@ type AppShellProps = {
   onAddExpense: () => void
   onGoExpenses: () => void
   onGoHome: () => void
+  onGoSettings: () => void
 }
 
 export function AppShell({
@@ -16,6 +17,7 @@ export function AppShell({
   onAddExpense,
   onGoExpenses,
   onGoHome,
+  onGoSettings,
 }: AppShellProps) {
   return (
     <div className="app-shell">
@@ -25,6 +27,7 @@ export function AppShell({
         onAddExpense={onAddExpense}
         onGoExpenses={onGoExpenses}
         onGoHome={onGoHome}
+        onGoSettings={onGoSettings}
       />
     </div>
   )

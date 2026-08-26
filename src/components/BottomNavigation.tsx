@@ -12,6 +12,7 @@ type BottomNavigationProps = {
   onAddExpense: () => void
   onGoExpenses: () => void
   onGoHome: () => void
+  onGoSettings: () => void
 }
 
 export function BottomNavigation({
@@ -19,10 +20,12 @@ export function BottomNavigation({
   onAddExpense,
   onGoExpenses,
   onGoHome,
+  onGoSettings,
 }: BottomNavigationProps) {
   const [home, expenses, statistics, settings] = navigationItems
   const isAddingExpense = currentPage === 'add-expense'
   const isExpensesSection = ['expenses', 'expense-detail', 'edit-expense'].includes(currentPage)
+  const isSettingsSection = ['settings', 'settlements', 'settlement-detail'].includes(currentPage)
 
   return (
     <nav className="bottom-navigation" aria-label="Navegación principal">
@@ -38,7 +41,11 @@ export function BottomNavigation({
         <span aria-hidden="true">+</span>
       </button>
       <NavItem {...statistics} />
-      <NavItem {...settings} />
+      <NavItem
+        {...settings}
+        active={isSettingsSection}
+        onClick={onGoSettings}
+      />
     </nav>
   )
 }

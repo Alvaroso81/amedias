@@ -1,12 +1,12 @@
 import type { CategoryExpense } from '../types/finance'
-import { formatWholeCurrency } from '../utils/formatCurrency'
+import { formatCurrency } from '../utils/formatCurrency'
 
 type CategoryListProps = {
   categories: CategoryExpense[]
 }
 
 export function CategoryList({ categories }: CategoryListProps) {
-  const highestAmount = Math.max(...categories.map(({ amount }) => amount))
+  const highestAmount = Math.max(0, ...categories.map(({ amount }) => amount))
 
   return (
     <section className="section-block" aria-labelledby="categories-title">
@@ -18,8 +18,9 @@ export function CategoryList({ categories }: CategoryListProps) {
       </div>
 
       <div className="card category-card">
-        <ul className="category-list">
-          {categories.map((category) => (
+        {categories.length ? (
+          <ul className="category-list">
+            {categories.map((category) => (
             <li className="category-item" key={category.name}>
               <span className="category-icon" aria-hidden="true">
                 {category.icon}
@@ -27,15 +28,22 @@ export function CategoryList({ categories }: CategoryListProps) {
               <div className="category-info">
                 <div className="category-copy">
                   <span>{category.name}</span>
-                  <strong>{formatWholeCurrency(category.amount)}</strong>
+                  <strong>{formatCurrency(category.amount)}</strong>
                 </div>
                 <div className="category-progress" aria-hidden="true">
-                  <span style={{ width: `${(category.amount / highestAmount) * 100}%` }} />
+                  <span
+                    style={{
+                      width: `${highestAmount ? (category.amount / highestAmount) * 100 : 0}%`,
+                    }}
+                  />
                 </div>
               </div>
             </li>
-          ))}
-        </ul>
+            ))}
+          </ul>
+        ) : (
+          <p className="section-empty-copy">No hay gastos por categoría este mes.</p>
+        )}
       </div>
     </section>
   )

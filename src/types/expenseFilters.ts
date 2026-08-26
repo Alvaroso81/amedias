@@ -1,7 +1,7 @@
-import type { ExpenseType, PaidBy } from './finance'
+import type { ExpenseType } from './finance'
 
 export type ExpenseFilters = {
-  paidBy: 'all' | PaidBy
+  paidBy: string
   category: string
   expenseType: 'all' | ExpenseType
 }

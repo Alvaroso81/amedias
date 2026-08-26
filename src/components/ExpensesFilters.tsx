@@ -1,8 +1,10 @@
-import { expenseCategories } from '../pages/expenseOptions'
 import type { ExpenseFilters } from '../types/expenseFilters'
+import type { ExpenseReadCategory, ExpenseReadMember } from '../types/expenseRead'
 
 type ExpensesFiltersProps = {
   filters: ExpenseFilters
+  members: ExpenseReadMember[]
+  categories: ExpenseReadCategory[]
   onApply: () => void
   onChange: (filters: ExpenseFilters) => void
   onClear: () => void
@@ -10,6 +12,8 @@ type ExpensesFiltersProps = {
 
 export function ExpensesFilters({
   filters,
+  members,
+  categories,
   onApply,
   onChange,
   onClear,
@@ -19,7 +23,7 @@ export function ExpensesFilters({
       <fieldset className="filter-group">
         <legend>Pagado por</legend>
         <div className="segmented-control filters-segmented filters-segmented--three">
-          {(['all', 'Álvaro', 'Marta'] as const).map((payer) => (
+          {['all', ...members.map((member) => member.userId)].map((payer) => (
             <button
               className={
                 filters.paidBy === payer ? 'segment-button segment-button--active' : 'segment-button'
@@ -29,7 +33,9 @@ export function ExpensesFilters({
               key={payer}
               onClick={() => onChange({ ...filters, paidBy: payer })}
             >
-              {payer === 'all' ? 'Todos' : payer}
+              {payer === 'all'
+                ? 'Todos'
+                : members.find((member) => member.userId === payer)?.displayName ?? 'Miembro'}
             </button>
           ))}
         </div>
@@ -46,8 +52,8 @@ export function ExpensesFilters({
             onChange={(event) => onChange({ ...filters, category: event.target.value })}
           >
             <option value="">Todas</option>
-            {expenseCategories.map((category) => (
-              <option value={category.name} key={category.name}>
+            {categories.map((category) => (
+              <option value={category.id ?? ''} key={category.id ?? category.name}>
                 {category.icon} {category.name}
               </option>
             ))}

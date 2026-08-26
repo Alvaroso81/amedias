@@ -1,17 +1,21 @@
 import { useEffect, useRef } from 'react'
-import type { Expense } from '../types/finance'
+import type { ExpenseRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
 
 type DeleteExpenseDialogProps = {
-  expense: Expense
+  expense: ExpenseRecord
   onCancel: () => void
   onConfirm: () => void
+  isDeleting: boolean
+  error: string | null
 }
 
 export function DeleteExpenseDialog({
   expense,
   onCancel,
   onConfirm,
+  isDeleting,
+  error,
 }: DeleteExpenseDialogProps) {
   const dialogRef = useRef<HTMLElement>(null)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
@@ -21,13 +25,15 @@ export function DeleteExpenseDialog({
 
     const handleDialogKeyboard = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onCancel()
+        if (!isDeleting) onCancel()
         return
       }
 
       if (event.key !== 'Tab') return
 
-      const focusableElements = dialogRef.current?.querySelectorAll<HTMLButtonElement>('button')
+      const focusableElements = dialogRef.current?.querySelectorAll<HTMLButtonElement>(
+        'button:not(:disabled)',
+      )
       if (!focusableElements?.length) return
 
       const firstElement = focusableElements[0]
@@ -44,7 +50,7 @@ export function DeleteExpenseDialog({
 
     window.addEventListener('keydown', handleDialogKeyboard)
     return () => window.removeEventListener('keydown', handleDialogKeyboard)
-  }, [onCancel])
+  }, [isDeleting, onCancel])
 
   return (
     <div className="dialog-backdrop">
@@ -54,7 +60,7 @@ export function DeleteExpenseDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
+        aria-describedby={`delete-dialog-description${error ? ' delete-dialog-error' : ''}`}
       >
         <span className="delete-dialog-icon" aria-hidden="true">
           ×
@@ -63,12 +69,22 @@ export function DeleteExpenseDialog({
         <p id="delete-dialog-description">
           {expense.description} · {formatCurrency(expense.amount)}
         </p>
+        {error && (
+          <p className="delete-dialog-error" id="delete-dialog-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="delete-dialog-actions">
-          <button ref={cancelButtonRef} type="button" onClick={onCancel}>
+          <button ref={cancelButtonRef} type="button" onClick={onCancel} disabled={isDeleting}>
             Cancelar
           </button>
-          <button className="confirm-delete-button" type="button" onClick={onConfirm}>
-            Eliminar gasto
+          <button
+            className="confirm-delete-button"
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Eliminando…' : 'Eliminar gasto'}
           </button>
         </div>
       </section>

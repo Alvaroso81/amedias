@@ -40,3 +40,32 @@ export function formatExpenseGroupDate(date: string) {
 
   return dateLabel
 }
+
+export function formatRelativeExpenseDate(date: string) {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+
+  if (date === toLocalIsoDate(today)) return 'Hoy'
+  if (date === toLocalIsoDate(yesterday)) return 'Ayer'
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'short',
+  }).format(parseLocalDate(date))
+}
+
+export function formatMonthYear(date: Date) {
+  const parts = new Intl.DateTimeFormat('es-ES', {
+    month: 'long',
+    year: 'numeric',
+  }).formatToParts(date)
+  const month = parts.find((part) => part.type === 'month')?.value ?? ''
+  const year = parts.find((part) => part.type === 'year')?.value ?? ''
+
+  return `${month.charAt(0).toLocaleUpperCase('es-ES')}${month.slice(1)} ${year}`.trim()
+}
+
+export function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
