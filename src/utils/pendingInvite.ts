@@ -1,4 +1,4 @@
-const pendingInviteStorageKey = 'equilibra_pending_invite'
+const pendingInviteStorageKey = 'amedias_pending_invite'
 let memoryToken: string | null = null
 
 function readStoredToken() {

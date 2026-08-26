@@ -477,10 +477,10 @@ button:focus-visible {
   border: 4px solid var(--primary-soft);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: equilibra-spin 750ms linear infinite;
+  animation: amedias-spin 750ms linear infinite;
 }
 
-@keyframes equilibra-spin {
+@keyframes amedias-spin {
   to {
     transform: rotate(360deg);
   }

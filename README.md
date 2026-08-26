@@ -1,2 +1,3 @@
-# equilibra
-Gasta, reparte, equilibra.
+# Amedias
+
+Tus gastos compartidos, en equilibrio.

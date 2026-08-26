@@ -87,7 +87,7 @@ export function PendingInviteGate({
         symbol="✓"
         title="Ya formas parte del hogar"
         message="La invitación se ha aceptado correctamente."
-        actionLabel="Entrar en Equilibra"
+        actionLabel="Entrar en Amedias"
         onAction={() => setState({ status: 'idle' })}
       />
     )

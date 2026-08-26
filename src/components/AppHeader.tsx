@@ -23,7 +23,7 @@ export function AppHeader({
   return (
     <header className="app-header">
       <div>
-        <h1>Equilibra</h1>
+        <h1>Amedias</h1>
         <p className="current-period">{currentPeriod}</p>
         <p className="brand-tagline">Tus gastos compartidos, en equilibrio.</p>
       </div>

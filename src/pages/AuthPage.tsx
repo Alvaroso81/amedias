@@ -285,9 +285,9 @@ function AuthBrand() {
   return (
     <header className="auth-brand">
       <span className="auth-brand-mark" aria-hidden="true">
-        E
+        A
       </span>
-      <h2>Equilibra</h2>
+      <h2>Amedias</h2>
       <p>Tus gastos compartidos, en equilibrio.</p>
     </header>
   )

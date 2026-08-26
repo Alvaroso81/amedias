@@ -42,7 +42,7 @@ function App() {
     return (
       <AppStatusScreen
         loading
-        title="Equilibra"
+        title="Amedias"
         message="Estamos preparando tu espacio compartido…"
       />
     )
@@ -51,7 +51,7 @@ function App() {
   if (error) {
     return (
       <AppStatusScreen
-        title="No hemos podido iniciar Equilibra"
+        title="No hemos podido iniciar Amedias"
         message={error}
         actionLabel="Volver a intentar"
         onAction={() => window.location.reload()}
