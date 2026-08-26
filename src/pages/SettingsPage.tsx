@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { PasswordChangeForm } from '../components/PasswordChangeForm'
 import {
   createHouseholdInvite,
   getHouseholdInvites,
@@ -64,6 +65,8 @@ export function SettingsPage({
   const [generatedLink, setGeneratedLink] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
+  const [passwordNotice, setPasswordNotice] = useState<string | null>(null)
 
   const loadSettings = useCallback(async () => {
     const currentRequest = ++requestId.current
@@ -359,8 +362,42 @@ export function SettingsPage({
             <span>Mi cuenta</span>
             <h2 id="account-settings-title">{displayName}</h2>
           </div>
+          <button
+            className="settings-inline-button"
+            type="button"
+            aria-expanded={isPasswordFormOpen}
+            aria-controls="password-change-panel"
+            onClick={() => {
+              setPasswordNotice(null)
+              setIsPasswordFormOpen((isOpen) => !isOpen)
+            }}
+          >
+            {isPasswordFormOpen ? 'Cerrar' : 'Cambiar contraseña'}
+          </button>
         </div>
         <p className="settings-account-email">{email}</p>
+
+        {isPasswordFormOpen && (
+          <div className="password-change-panel" id="password-change-panel">
+            <PasswordChangeForm
+              onCancel={() => setIsPasswordFormOpen(false)}
+              onSuccess={() => {
+                setIsPasswordFormOpen(false)
+                setPasswordNotice('Contraseña actualizada')
+              }}
+            />
+          </div>
+        )}
+
+        {passwordNotice && (
+          <div className="password-change-success" role="status" aria-live="polite">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>{passwordNotice}</strong>
+              <p>Ya puedes utilizar tu nueva contraseña.</p>
+            </div>
+          </div>
+        )}
 
         <button
           className="settings-signout-button"
