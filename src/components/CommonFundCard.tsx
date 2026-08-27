@@ -1,8 +1,12 @@
 import './CommonFund.css'
 import type { CommonFundState } from '../types/commonFund'
 import { formatCurrency } from '../utils/formatCurrency'
-import { getMonthKey } from '../utils/formatDate'
-import { getCommonFundBand, getCommonFundPercentage } from '../utils/commonFund'
+import {
+  getCommonFundBand,
+  getCommonFundMonthlyActivity,
+  getCommonFundPercentage,
+  isCommonFundUnstarted,
+} from '../utils/commonFund'
 
 type CommonFundCardProps = CommonFundState & {
   loading: boolean
@@ -45,17 +49,10 @@ export function CommonFundCard({
   }
 
   const percentage = getCommonFundPercentage(balance, settings.suggestedContributionAmount)
-  const band = getCommonFundBand(percentage)
-  const currentMonth = getMonthKey(new Date())
-  const spentThisMonth = Math.abs(
-    movements
-      .filter(
-        (movement) =>
-          movement.movementType === 'expense' &&
-          movement.expenseDate?.startsWith(currentMonth),
-      )
-      .reduce((total, movement) => total + movement.amountDelta, 0),
-  )
+  const isUnstarted = isCommonFundUnstarted(balance, movements)
+  const band = isUnstarted ? 'neutral' : getCommonFundBand(percentage)
+  const showProgress = !isUnstarted && settings.suggestedContributionAmount > 0
+  const { addedThisMonth, spentThisMonth } = getCommonFundMonthlyActivity(movements)
 
   return (
     <section
@@ -71,24 +68,45 @@ export function CommonFundCard({
       </div>
 
       <strong className="common-fund-card__balance">{formatCurrency(balance)}</strong>
-      <span className="common-fund-card__percentage">
-        {percentageFormatter.format(percentage)} % de la aportación habitual
-      </span>
+      {isUnstarted ? (
+        <p className="common-fund-card__empty-copy">
+          Aún no habéis añadido dinero al fondo
+        </p>
+      ) : showProgress ? (
+        <>
+          <span className="common-fund-card__percentage">
+            {percentageFormatter.format(percentage)} % del fondo habitual
+          </span>
+          <div
+            className="common-fund-progress"
+            role="progressbar"
+            aria-label={
+              'Saldo disponible: ' +
+              percentageFormatter.format(percentage) +
+              ' por ciento del fondo habitual'
+            }
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.min(100, Math.round(percentage))}
+          >
+            <span style={{ width: Math.min(100, percentage) + '%' }} />
+          </div>
+        </>
+      ) : null}
 
       <div
-        className="common-fund-progress"
-        role="progressbar"
-        aria-label={`Saldo disponible: ${percentageFormatter.format(percentage)} por ciento de la aportación habitual`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.min(100, Math.round(percentage))}
+        className={
+          isUnstarted
+            ? 'common-fund-card__facts common-fund-card__facts--empty'
+            : 'common-fund-card__facts'
+        }
       >
-        <span style={{ width: `${Math.min(100, percentage)}%` }} />
-      </div>
-
-      <div className="common-fund-card__facts">
-        <span>Aportación habitual <b>{formatCurrency(settings.suggestedContributionAmount)}</b></span>
-        <span>Por persona <b>{formatCurrency(settings.suggestedContributionAmount / 2)}</b></span>
+        {!isUnstarted && (
+          <>
+            <span>Añadido este mes <b>{formatCurrency(addedThisMonth)}</b></span>
+            <span>Por persona <b>{formatCurrency(addedThisMonth / 2)}</b></span>
+          </>
+        )}
         <span>Gastado este mes <b>{formatCurrency(spentThisMonth)}</b></span>
       </div>
 

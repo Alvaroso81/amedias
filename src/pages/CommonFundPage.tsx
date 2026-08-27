@@ -7,7 +7,13 @@ import {
   topUpCommonFund,
 } from '../services/commonFund'
 import type { CommonFundState } from '../types/commonFund'
-import { formatSignedFundAmount, getCommonFundBand, getCommonFundPercentage } from '../utils/commonFund'
+import {
+  formatSignedFundAmount,
+  getCommonFundBand,
+  getCommonFundMonthlyActivity,
+  getCommonFundPercentage,
+  isCommonFundUnstarted,
+} from '../utils/commonFund'
 import { formatCurrency } from '../utils/formatCurrency'
 import { formatLongDate } from '../utils/formatDate'
 
@@ -55,7 +61,10 @@ export function CommonFundPage({
   }
 
   const percentage = getCommonFundPercentage(balance, settings.suggestedContributionAmount)
-  const band = getCommonFundBand(percentage)
+  const isUnstarted = isCommonFundUnstarted(balance, movements)
+  const band = isUnstarted ? 'neutral' : getCommonFundBand(percentage)
+  const showProgress = !isUnstarted && settings.suggestedContributionAmount > 0
+  const { addedThisMonth, spentThisMonth } = getCommonFundMonthlyActivity(movements)
 
   const completeAction = async (message: string) => {
     await onRefresh()
@@ -77,21 +86,36 @@ export function CommonFundPage({
       <section className={`card common-fund-hero common-fund-card--${band}`}>
         <span>Saldo disponible</span>
         <strong>{formatCurrency(balance)}</strong>
-        <p>{percentageFormatter.format(percentage)} % de la aportación habitual ({formatCurrency(settings.suggestedContributionAmount)})</p>
-        <div
-          className="common-fund-progress"
-          role="progressbar"
-          aria-label={`Saldo disponible: ${percentageFormatter.format(percentage)} por ciento`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.min(100, Math.round(percentage))}
-        >
-          <span style={{ width: `${Math.min(100, percentage)}%` }} />
-        </div>
-        <div>
-          <span>Aportación habitual <b>{formatCurrency(settings.suggestedContributionAmount)}</b></span>
-          <span>Por persona <b>{formatCurrency(settings.suggestedContributionAmount / 2)}</b></span>
-        </div>
+        {isUnstarted ? (
+          <p className="common-fund-hero__empty-copy">
+            Aún no habéis añadido dinero al fondo.
+          </p>
+        ) : showProgress ? (
+          <>
+            <p>{percentageFormatter.format(percentage)} % del fondo habitual</p>
+            <div
+              className="common-fund-progress"
+              role="progressbar"
+              aria-label={
+                'Saldo disponible: ' +
+                percentageFormatter.format(percentage) +
+                ' por ciento del fondo habitual'
+              }
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.min(100, Math.round(percentage))}
+            >
+              <span style={{ width: Math.min(100, percentage) + '%' }} />
+            </div>
+          </>
+        ) : null}
+        {!isUnstarted && (
+          <div className="common-fund-hero__facts">
+            <span>Añadido este mes <b>{formatCurrency(addedThisMonth)}</b></span>
+            <span>Por persona <b>{formatCurrency(addedThisMonth / 2)}</b></span>
+            <span>Gastado este mes <b>{formatCurrency(spentThisMonth)}</b></span>
+          </div>
+        )}
       </section>
 
       <div className="common-fund-page-actions">
