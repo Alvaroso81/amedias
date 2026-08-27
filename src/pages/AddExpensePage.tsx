@@ -574,7 +574,7 @@ function ExpenseForm({
             {fundHasInsufficientBalance && (
               <div className="fund-insufficient-message" role="alert">
                 <span>Saldo insuficiente en el fondo común.</span>
-                <button type="button" onClick={onOpenCommonFund}>Recargar fondo</button>
+                <button type="button" onClick={onOpenCommonFund}>Añadir al fondo</button>
               </div>
             )}
           </fieldset>

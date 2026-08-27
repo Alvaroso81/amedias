@@ -194,7 +194,7 @@ function ExpenseApp({
   onSignOut,
 }: ExpenseAppProps) {
   const { expenses, members, settlements, loading, error, refresh } = useExpenses(householdId)
-  const commonFund = useCommonFund(householdId, members.length)
+  const commonFund = useCommonFund(householdId)
   const [currentPage, setCurrentPage] = useState<AppPage>('home')
   const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null)

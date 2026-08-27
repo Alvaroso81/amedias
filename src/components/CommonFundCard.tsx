@@ -44,7 +44,7 @@ export function CommonFundCard({
     )
   }
 
-  const percentage = getCommonFundPercentage(balance, settings.monthlyAmount)
+  const percentage = getCommonFundPercentage(balance, settings.suggestedContributionAmount)
   const band = getCommonFundBand(percentage)
   const currentMonth = getMonthKey(new Date())
   const spentThisMonth = Math.abs(
@@ -72,13 +72,13 @@ export function CommonFundCard({
 
       <strong className="common-fund-card__balance">{formatCurrency(balance)}</strong>
       <span className="common-fund-card__percentage">
-        {percentageFormatter.format(percentage)} % de la aportación mensual
+        {percentageFormatter.format(percentage)} % de la aportación habitual
       </span>
 
       <div
         className="common-fund-progress"
         role="progressbar"
-        aria-label={`Saldo disponible: ${percentageFormatter.format(percentage)} por ciento de la aportación mensual`}
+        aria-label={`Saldo disponible: ${percentageFormatter.format(percentage)} por ciento de la aportación habitual`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.min(100, Math.round(percentage))}
@@ -87,13 +87,13 @@ export function CommonFundCard({
       </div>
 
       <div className="common-fund-card__facts">
-        <span>Mensual <b>{formatCurrency(settings.monthlyAmount)}</b></span>
-        <span>Por persona <b>{formatCurrency(settings.monthlyAmount / 2)}</b></span>
+        <span>Aportación habitual <b>{formatCurrency(settings.suggestedContributionAmount)}</b></span>
+        <span>Por persona <b>{formatCurrency(settings.suggestedContributionAmount / 2)}</b></span>
         <span>Gastado este mes <b>{formatCurrency(spentThisMonth)}</b></span>
       </div>
 
       <div className="common-fund-card__actions">
-        <button type="button" disabled={!settings.enabled} onClick={onTopUp}>Recargar</button>
+        <button type="button" disabled={!settings.enabled} onClick={onTopUp}>Añadir al fondo</button>
         <button type="button" onClick={onViewFund}>Ver fondo</button>
       </div>
     </section>

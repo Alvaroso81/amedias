@@ -7,16 +7,13 @@ import type {
 
 const knownCommonFundErrors = [
   'Debes iniciar sesión para usar el fondo común',
-  'Debes iniciar sesión para recargar el fondo común',
   'Debes iniciar sesión para ajustar el fondo común',
   'Debes iniciar sesión para configurar el fondo común',
   'No perteneces al hogar indicado',
   'El fondo común requiere exactamente dos miembros',
   'El fondo común está desactivado',
-  'La recarga debe ser mayor que 0 y tener como máximo dos decimales',
   'El saldo objetivo debe ser 0 o mayor y tener como máximo dos decimales',
-  'La aportación mensual debe ser 0 o mayor y tener como máximo dos decimales',
-]
+] as const
 
 export class CommonFundServiceError extends Error {}
 
@@ -102,7 +99,8 @@ export async function loadCommonFundState(householdId: string): Promise<CommonFu
     ? {
         householdId: settingsResult.data.household_id,
         enabled: settingsResult.data.enabled,
-        monthlyAmount: Number(settingsResult.data.monthly_amount),
+        // monthly_amount remains the database column for compatibility; it is only a UI suggestion.
+        suggestedContributionAmount: Number(settingsResult.data.monthly_amount),
         carryOver: settingsResult.data.carry_over,
         createdAt: settingsResult.data.created_at,
         updatedAt: settingsResult.data.updated_at,
@@ -116,21 +114,6 @@ export async function loadCommonFundState(householdId: string): Promise<CommonFu
   }
 }
 
-export async function ensureMonthlyCommonFund(householdId: string, month: string) {
-  const { data, error } = await supabase.rpc('ensure_monthly_common_fund', {
-    p_household_id: householdId,
-    p_month: month,
-  })
-
-  if (error) {
-    throw new CommonFundServiceError(
-      getSafeFundError(error, 'No hemos podido preparar la aportación mensual.'),
-    )
-  }
-
-  return typeof data === 'string' ? data : null
-}
-
 export async function topUpCommonFund(householdId: string, amount: number, note: string) {
   const { data, error } = await supabase.rpc('top_up_common_fund', {
     p_household_id: householdId,
@@ -140,12 +123,12 @@ export async function topUpCommonFund(householdId: string, amount: number, note:
 
   if (error) {
     throw new CommonFundServiceError(
-      getSafeFundError(error, 'No hemos podido recargar el fondo común.'),
+      getSafeFundError(error, 'No hemos podido añadir dinero al fondo.'),
     )
   }
 
   if (typeof data !== 'string') {
-    throw new CommonFundServiceError('La recarga se guardó sin identificador.')
+    throw new CommonFundServiceError('La aportación se guardó sin identificador.')
   }
 
   return data
@@ -173,12 +156,12 @@ export async function setCommonFundBalance(
 
 export async function saveCommonFundSettings(
   householdId: string,
-  monthlyAmount: number,
+  suggestedContributionAmount: number,
   enabled: boolean,
 ) {
   const { data, error } = await supabase.rpc('update_common_fund_settings', {
     p_household_id: householdId,
-    p_monthly_amount: monthlyAmount,
+    p_monthly_amount: suggestedContributionAmount,
     p_enabled: enabled,
   })
 

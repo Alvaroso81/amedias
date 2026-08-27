@@ -9,7 +9,7 @@ export type CommonFundMovementType =
 export type CommonFundSettings = {
   householdId: string
   enabled: boolean
-  monthlyAmount: number
+  suggestedContributionAmount: number
   carryOver: boolean
   createdAt: string
   updatedAt: string

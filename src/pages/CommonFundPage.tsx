@@ -54,7 +54,7 @@ export function CommonFundPage({
     )
   }
 
-  const percentage = getCommonFundPercentage(balance, settings.monthlyAmount)
+  const percentage = getCommonFundPercentage(balance, settings.suggestedContributionAmount)
   const band = getCommonFundBand(percentage)
 
   const completeAction = async (message: string) => {
@@ -77,7 +77,7 @@ export function CommonFundPage({
       <section className={`card common-fund-hero common-fund-card--${band}`}>
         <span>Saldo disponible</span>
         <strong>{formatCurrency(balance)}</strong>
-        <p>{percentageFormatter.format(percentage)} % de {formatCurrency(settings.monthlyAmount)}</p>
+        <p>{percentageFormatter.format(percentage)} % de la aportación habitual ({formatCurrency(settings.suggestedContributionAmount)})</p>
         <div
           className="common-fund-progress"
           role="progressbar"
@@ -89,14 +89,14 @@ export function CommonFundPage({
           <span style={{ width: `${Math.min(100, percentage)}%` }} />
         </div>
         <div>
-          <span>Mensual <b>{formatCurrency(settings.monthlyAmount)}</b></span>
-          <span>Por persona <b>{formatCurrency(settings.monthlyAmount / 2)}</b></span>
+          <span>Aportación habitual <b>{formatCurrency(settings.suggestedContributionAmount)}</b></span>
+          <span>Por persona <b>{formatCurrency(settings.suggestedContributionAmount / 2)}</b></span>
         </div>
       </section>
 
       <div className="common-fund-page-actions">
         <button type="button" disabled={!settings.enabled} onClick={() => setDialog('top-up')}>
-          <span aria-hidden="true">＋</span> Recargar
+          <span aria-hidden="true">＋</span> Añadir al fondo
         </button>
         <button type="button" disabled={!settings.enabled} onClick={() => setDialog('adjust')}>
           <span aria-hidden="true">≈</span> Ajustar
@@ -124,7 +124,7 @@ export function CommonFundPage({
                     {movement.categoryName ? `${movement.categoryName} · ` : ''}
                     {formatLongDate(movement.expenseDate ?? movement.periodMonth ?? movement.createdAt.slice(0, 10))}
                   </small>
-                  {movement.note && movement.note !== movement.expenseDescription && <em>{movement.note}</em>}
+                  {movement.note && movement.movementType !== 'monthly_contribution' && movement.note !== movement.expenseDescription && <em>{movement.note}</em>}
                 </span>
                 <b className={movement.amountDelta > 0 ? 'fund-movement-positive' : 'fund-movement-negative'}>
                   {formatSignedFundAmount(movement.amountDelta)}
@@ -135,7 +135,7 @@ export function CommonFundPage({
         ) : (
           <div className="common-fund-empty">
             <strong>El fondo común está listo</strong>
-            <p>Tu aportación mensual aparecerá automáticamente.</p>
+            <p>Añade dinero al fondo cuando lo necesitéis.</p>
           </div>
         )}
       </section>
@@ -143,8 +143,9 @@ export function CommonFundPage({
       {dialog === 'top-up' && (
         <TopUpDialog
           householdId={householdId}
+          suggestedContributionAmount={settings.suggestedContributionAmount}
           onCancel={() => setDialog(null)}
-          onSaved={() => completeAction('Fondo recargado')}
+          onSaved={() => completeAction('Aportación añadida')}
         />
       )}
       {dialog === 'adjust' && (
@@ -158,7 +159,7 @@ export function CommonFundPage({
       {dialog === 'settings' && (
         <SettingsDialog
           householdId={householdId}
-          monthlyAmount={settings.monthlyAmount}
+          suggestedContributionAmount={settings.suggestedContributionAmount}
           enabled={settings.enabled}
           onCancel={() => setDialog(null)}
           onSaved={() => completeAction('Configuración guardada')}
@@ -170,8 +171,8 @@ export function CommonFundPage({
 
 function getMovementTitle(movement: CommonFundState['movements'][number]) {
   if (movement.movementType === 'expense') return movement.expenseDescription ?? 'Gasto del fondo'
-  if (movement.movementType === 'monthly_contribution') return 'Aportación mensual'
-  if (movement.movementType === 'top_up') return 'Recarga del fondo'
+  if (movement.movementType === 'monthly_contribution') return 'Aportación al fondo'
+  if (movement.movementType === 'top_up') return 'Aportación al fondo'
   return 'Ajuste de saldo'
 }
 
@@ -207,8 +208,8 @@ type DialogProps = {
   onSaved: () => void | Promise<void>
 }
 
-function TopUpDialog({ householdId, onCancel, onSaved }: DialogProps) {
-  const [amount, setAmount] = useState('')
+function TopUpDialog({ householdId, suggestedContributionAmount, onCancel, onSaved }: DialogProps & { suggestedContributionAmount: number }) {
+  const [amount, setAmount] = useState(String(suggestedContributionAmount))
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -217,7 +218,7 @@ function TopUpDialog({ householdId, onCancel, onSaved }: DialogProps) {
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError('Introduce una recarga mayor que 0.')
+      setError('Introduce una aportación mayor que 0.')
       return
     }
     setSaving(true)
@@ -226,19 +227,19 @@ function TopUpDialog({ householdId, onCancel, onSaved }: DialogProps) {
       await topUpCommonFund(householdId, numericAmount, note.trim())
       await onSaved()
     } catch (caught) {
-      setError(caught instanceof CommonFundServiceError ? caught.message : 'No hemos podido recargar el fondo.')
+      setError(caught instanceof CommonFundServiceError ? caught.message : 'No hemos podido añadir dinero al fondo.')
       setSaving(false)
     }
   }
 
   return (
-    <FundDialog title="Recargar fondo" subtitle="Nueva aportación" onCancel={onCancel} saving={saving}>
+    <FundDialog title="Añadir al fondo" subtitle="Nueva aportación" onCancel={onCancel} saving={saving}>
       <form className="fund-dialog-form" onSubmit={submit} noValidate>
         <label>Importe<div className="settlement-amount-input"><input autoFocus type="number" inputMode="decimal" min="0.01" step="0.01" value={amount} onChange={(event) => { setAmount(event.target.value); setError(null) }} /><span>€</span></div></label>
-        <p className="fund-per-person-copy">{Number.isFinite(numericAmount) && numericAmount > 0 ? `${formatCurrency(numericAmount / 2)} por persona` : 'La recarga pertenece al 50 % a cada uno.'}</p>
-        <label>Nota opcional<textarea rows={3} value={note} placeholder="Por ejemplo, recarga extra" onChange={(event) => setNote(event.target.value)} /></label>
+        <p className="fund-per-person-copy">{Number.isFinite(numericAmount) && numericAmount > 0 ? `${formatCurrency(numericAmount / 2)} por persona` : 'El fondo común pertenece al 50 % a cada persona.'}</p>
+        <label>Nota opcional<textarea rows={3} value={note} placeholder="Por ejemplo, ingreso inicial" onChange={(event) => setNote(event.target.value)} /></label>
         {error && <p className="inline-expense-error" role="alert">{error}</p>}
-        <button className="save-expense-button" type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Recargar fondo'}</button>
+        <button className="save-expense-button" type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Añadir al fondo'}</button>
       </form>
     </FundDialog>
   )
@@ -283,8 +284,8 @@ function AdjustDialog({ householdId, balance, onCancel, onSaved }: DialogProps &
   )
 }
 
-function SettingsDialog({ householdId, monthlyAmount, enabled, onCancel, onSaved }: DialogProps & { monthlyAmount: number; enabled: boolean }) {
-  const [amount, setAmount] = useState(String(monthlyAmount))
+function SettingsDialog({ householdId, suggestedContributionAmount, enabled, onCancel, onSaved }: DialogProps & { suggestedContributionAmount: number; enabled: boolean }) {
+  const [amount, setAmount] = useState(String(suggestedContributionAmount))
   const [isEnabled, setIsEnabled] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -293,7 +294,7 @@ function SettingsDialog({ householdId, monthlyAmount, enabled, onCancel, onSaved
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (amount === '' || !Number.isFinite(numericAmount) || numericAmount < 0) {
-      setError('La aportación mensual debe ser 0 o mayor.')
+      setError('La aportación habitual debe ser 0 o mayor.')
       return
     }
     setSaving(true)
@@ -308,12 +309,12 @@ function SettingsDialog({ householdId, monthlyAmount, enabled, onCancel, onSaved
   }
 
   return (
-    <FundDialog title="Configurar fondo" subtitle="Aportación mensual" onCancel={onCancel} saving={saving}>
+    <FundDialog title="Configurar fondo" subtitle="Aportación habitual" onCancel={onCancel} saving={saving}>
       <form className="fund-dialog-form" onSubmit={submit} noValidate>
-        <label>Aportación mensual<div className="settlement-amount-input"><input autoFocus type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(event) => { setAmount(event.target.value); setError(null) }} /><span>€</span></div></label>
+        <label>Aportación habitual<div className="settlement-amount-input"><input autoFocus type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(event) => { setAmount(event.target.value); setError(null) }} /><span>€</span></div></label>
         <p className="fund-per-person-copy">{Number.isFinite(numericAmount) && numericAmount >= 0 ? `${formatCurrency(numericAmount / 2)} por persona` : '50 % por persona'}</p>
-        <label className="fund-enabled-toggle"><input type="checkbox" checked={isEnabled} onChange={(event) => setIsEnabled(event.target.checked)} /><span><strong>Fondo común activo</strong><small>Al desactivarlo no se crearán nuevas aportaciones ni gastos desde el fondo.</small></span></label>
-        <p className="fund-settings-help">El nuevo importe se aplicará a aportaciones futuras. El saldo acumulado no cambia y continúa al mes siguiente.</p>
+        <label className="fund-enabled-toggle"><input type="checkbox" checked={isEnabled} onChange={(event) => setIsEnabled(event.target.checked)} /><span><strong>Fondo común activo</strong><small>Al desactivarlo no se podrá añadir dinero ni pagar gastos desde el fondo.</small></span></label>
+        <p className="fund-settings-help">Esta cantidad se utilizará como valor sugerido al añadir dinero al fondo. Puedes cambiarla en cada aportación.</p>
         {error && <p className="inline-expense-error" role="alert">{error}</p>}
         <button className="save-expense-button" type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar configuración'}</button>
       </form>

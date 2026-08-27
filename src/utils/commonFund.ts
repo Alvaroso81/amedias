@@ -6,9 +6,9 @@ export function roundToCents(amount: number) {
   return Math.round((amount + Number.EPSILON) * 100) / 100
 }
 
-export function getCommonFundPercentage(balance: number, monthlyAmount: number) {
-  if (monthlyAmount <= 0) return balance > 0 ? 100 : 0
-  return Math.max(0, (balance / monthlyAmount) * 100)
+export function getCommonFundPercentage(balance: number, suggestedContributionAmount: number) {
+  if (suggestedContributionAmount <= 0) return balance > 0 ? 100 : 0
+  return Math.max(0, (balance / suggestedContributionAmount) * 100)
 }
 
 export function getCommonFundBand(percentage: number): CommonFundBand {
