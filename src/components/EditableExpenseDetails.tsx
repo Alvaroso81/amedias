@@ -2,13 +2,14 @@ import './EditableExpenseDetails.css'
 import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
-import { updateExpense } from '../services/expenses'
+import { ExpenseServiceError, updateExpense } from '../services/expenses'
 import type { ExpenseCategory, ExpenseMember } from '../types/expenseCreation'
 import type { ExpenseRecord } from '../types/expenseRead'
 import type { ExpenseType } from '../types/finance'
 import {
   buildExpenseUpdateInput,
   createExpenseEditDraft,
+  getCommonFundSplits,
   getDefaultExpenseSplits,
 } from '../utils/expenseEditing'
 import type { ExpenseEditDraft } from '../utils/expenseEditing'
@@ -28,6 +29,9 @@ type EditableField =
 type EditableExpenseDetailsProps = {
   expense: ExpenseRecord
   householdId: string
+  commonFundBalance: number
+  commonFundEnabled: boolean
+  commonFundLoading: boolean
   onUpdated: (expenseId: string) => void | Promise<void>
 }
 
@@ -39,6 +43,9 @@ function validateDraft(
   draft: ExpenseEditDraft,
   categories: ExpenseCategory[],
   members: ExpenseMember[],
+  commonFundBalance: number,
+  commonFundEnabled: boolean,
+  originalExpense: ExpenseRecord,
 ) {
   const amount = Number(draft.amount)
 
@@ -52,14 +59,19 @@ function validateDraft(
   if (!categories.some((category) => category.id === draft.categoryId)) {
     return 'Selecciona una categoría activa.'
   }
-  if (!members.some((member) => member.userId === draft.paidByUserId)) {
+  if (draft.paymentSource === 'common_fund') {
+    if (!commonFundEnabled || members.length !== 2) return 'El fondo común no está disponible.'
+    const availableBalance = commonFundBalance +
+      (originalExpense.paymentSource === 'common_fund' ? originalExpense.amount : 0)
+    if (amount > availableBalance) return 'No hay suficiente dinero en el fondo común.'
+  } else if (!members.some((member) => member.userId === draft.paidByUserId)) {
     return 'Selecciona quién ha pagado.'
   }
   if (!draft.expenseDate || Number.isNaN(new Date(`${draft.expenseDate}T12:00:00`).getTime())) {
     return 'Selecciona una fecha válida.'
   }
 
-  if (draft.expenseType === 'common') {
+  if (draft.expenseType === 'common' && draft.paymentSource === 'member') {
     const percentages = members.map((member) => draft.splits[member.userId] ?? '')
     const parsedPercentages = percentages.map(Number)
     const hasInvalidPercentage = percentages.some((percentage, index) => {
@@ -86,6 +98,9 @@ function validateDraft(
 export function EditableExpenseDetails({
   expense,
   householdId,
+  commonFundBalance,
+  commonFundEnabled,
+  commonFundLoading,
   onUpdated,
 }: EditableExpenseDetailsProps) {
   const formData = useExpenseFormData(householdId)
@@ -114,7 +129,14 @@ export function EditableExpenseDetails({
   const saveEditing = async () => {
     if (!draft || isSaving) return
 
-    const validationError = validateDraft(draft, formData.categories, formData.members)
+    const validationError = validateDraft(
+      draft,
+      formData.categories,
+      formData.members,
+      commonFundBalance,
+      commonFundEnabled,
+      expense,
+    )
 
     if (validationError) {
       setSaveError(validationError)
@@ -129,8 +151,8 @@ export function EditableExpenseDetails({
       await onUpdated(expense.id)
       setActiveField(null)
       setDraft(null)
-    } catch {
-      setSaveError('No hemos podido actualizar el gasto.')
+    } catch (error) {
+      setSaveError(error instanceof ExpenseServiceError ? error.message : 'No hemos podido actualizar el gasto.')
     } finally {
       setIsSaving(false)
     }
@@ -176,6 +198,7 @@ export function EditableExpenseDetails({
 
     updateDraft({
       expenseType,
+      paymentSource: expenseType === 'personal' ? 'member' : draft.paymentSource,
       splits:
         expenseType === 'common' && draft.expenseType === 'personal'
           ? getDefaultExpenseSplits(formData.members)
@@ -261,29 +284,43 @@ export function EditableExpenseDetails({
     if (field === 'payer') {
       return (
         <InlineEditor
-          label="Pagado por"
+          label="Pagado con"
           isSaving={isSaving}
           error={saveError}
           onSave={saveEditing}
           onCancel={cancelEditing}
         >
           <div className="segmented-control inline-segmented-control">
+            <button
+              className={draft.paymentSource === 'common_fund' ? 'segment-button segment-button--active' : 'segment-button'}
+              type="button"
+              disabled={commonFundLoading || !commonFundEnabled || formData.members.length !== 2}
+              aria-pressed={draft.paymentSource === 'common_fund'}
+              onClick={() => updateDraft({
+                paymentSource: 'common_fund',
+                expenseType: 'common',
+                splits: getCommonFundSplits(formData.members),
+              })}
+            >
+              Fondo común
+            </button>
             {formData.members.map((member) => (
               <button
                 className={
-                  draft.paidByUserId === member.userId
+                  draft.paymentSource === 'member' && draft.paidByUserId === member.userId
                     ? 'segment-button segment-button--active'
                     : 'segment-button'
                 }
                 type="button"
-                aria-pressed={draft.paidByUserId === member.userId}
+                aria-pressed={draft.paymentSource === 'member' && draft.paidByUserId === member.userId}
                 key={member.userId}
-                onClick={() => updateDraft({ paidByUserId: member.userId })}
+                onClick={() => updateDraft({ paymentSource: 'member', paidByUserId: member.userId })}
               >
                 {member.displayName}
               </button>
             ))}
           </div>
+          <p className="inline-fund-balance">Disponible: {formatCurrency(commonFundBalance)}</p>
         </InlineEditor>
       )
     }
@@ -297,7 +334,11 @@ export function EditableExpenseDetails({
           onSave={saveEditing}
           onCancel={cancelEditing}
         >
-          {draft.expenseType === 'personal' ? (
+          {draft.paymentSource === 'common_fund' ? (
+            <p className="inline-personal-note">
+              El fondo común pertenece al 50 % a cada uno. Este reparto no modifica el balance personal.
+            </p>
+          ) : draft.expenseType === 'personal' ? (
             <p className="inline-personal-note">
               El gasto personal corresponde al 100 % al pagador. Cambia el tipo a Común para
               personalizarlo.
@@ -456,14 +497,18 @@ export function EditableExpenseDetails({
       {renderRow('category', 'Categoría', `${expense.category.icon} ${expense.category.name}`)}
       {renderRow(
         'payer',
-        'Pagado por',
-        <span className="detail-edit-value-lines">
-          {expense.payments.length
-            ? expense.payments.map((payment) => (
-                <span key={payment.userId}>{payment.displayName}</span>
-              ))
-            : 'Pagador no disponible'}
-        </span>,
+        'Pagado con',
+        expense.paymentSource === 'common_fund' ? (
+          'Fondo común'
+        ) : (
+          <span className="detail-edit-value-lines">
+            {expense.payments.length
+              ? expense.payments.map((payment) => (
+                  <span key={payment.userId}>{payment.displayName}</span>
+                ))
+              : 'Pagador no disponible'}
+          </span>
+        ),
       )}
       {renderRow(
         'split',

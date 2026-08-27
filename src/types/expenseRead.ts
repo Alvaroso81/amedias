@@ -1,5 +1,6 @@
 import type { ExpenseType } from './finance'
 import type { HouseholdRole } from './household'
+import type { PaymentSource } from './commonFund'
 
 export type ExpenseReadMember = {
   userId: string
@@ -33,6 +34,7 @@ export type ExpenseRecord = {
   amount: number
   expenseDate: string
   expenseType: ExpenseType
+  paymentSource: PaymentSource
   note: string
   categoryId: string | null
   category: ExpenseReadCategory

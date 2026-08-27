@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { BalanceCard } from '../components/BalanceCard'
+import { CommonFundCard } from '../components/CommonFundCard'
 import { CategoryList } from '../components/CategoryList'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import { ExpenseSummary } from '../components/ExpenseSummary'
 import { RecentExpenses } from '../components/RecentExpenses'
 import type { CategoryExpense, PersonContribution } from '../types/finance'
+import type { CommonFundState } from '../types/commonFund'
 import type {
   ExpenseReadMember,
   ExpenseRecord,
@@ -21,11 +23,15 @@ type HomePageProps = {
   currentUserId: string
   members: ExpenseReadMember[]
   settlements: SettlementRecord[]
+  commonFund: CommonFundState & { loading: boolean; error: string | null }
   loading: boolean
   error: string | null
   isSigningOut: boolean
   signOutError: string | null
   onRetry: () => void
+  onRetryCommonFund: () => void
+  onTopUpFund: () => void
+  onViewFund: () => void
   onSelectExpense: (expenseId: string) => void
   onViewAllExpenses: () => void
   onSettleAccounts: (direction: SettlementDirection) => void
@@ -44,11 +50,15 @@ export function HomePage({
   currentUserId,
   members,
   settlements,
+  commonFund,
   loading,
   error,
   isSigningOut,
   signOutError,
   onRetry,
+  onRetryCommonFund,
+  onTopUpFund,
+  onViewFund,
   onSelectExpense,
   onViewAllExpenses,
   onSettleAccounts,
@@ -67,25 +77,41 @@ export function HomePage({
 
   const contributions = useMemo(() => {
     const paidByMember = new Map(members.map((member) => [member.userId, 0]))
+    let paidByFund = 0
 
     monthlyExpenses.forEach((expense) => {
+      if (expense.paymentSource === 'common_fund') {
+        paidByFund += expense.amount
+        return
+      }
+
       expense.payments.forEach((payment) => {
         paidByMember.set(payment.userId, (paidByMember.get(payment.userId) ?? 0) + payment.amount)
       })
     })
 
-    const totalPaid = [...paidByMember.values()].reduce((sum, amount) => sum + amount, 0)
-    const result: PersonContribution[] = members.map((member) => ({
-      id: member.userId,
-      name: member.displayName,
-      amount: roundMoney(paidByMember.get(member.userId) ?? 0),
-      percentage: totalPaid
-        ? Math.round(((paidByMember.get(member.userId) ?? 0) / totalPaid) * 100)
-        : 0,
-    }))
+    const totalPaid = paidByFund + [...paidByMember.values()].reduce((sum, value) => sum + value, 0)
+    const result: PersonContribution[] = [
+      {
+        id: 'common_fund',
+        name: 'Fondo común',
+        amount: roundMoney(paidByFund),
+        percentage: totalPaid ? Math.round((paidByFund / totalPaid) * 100) : 0,
+      },
+      ...members.map((member) => ({
+        id: member.userId,
+        name: member.displayName,
+        amount: roundMoney(paidByMember.get(member.userId) ?? 0),
+        percentage: totalPaid
+          ? Math.round(((paidByMember.get(member.userId) ?? 0) / totalPaid) * 100)
+          : 0,
+      })),
+    ]
 
-    if (result.length === 2 && totalPaid) {
-      result[1].percentage = 100 - result[0].percentage
+    if (result.length && totalPaid) {
+      result[result.length - 1].percentage = 100 - result
+        .slice(0, -1)
+        .reduce((sum, contribution) => sum + contribution.percentage, 0)
     }
 
     return result
@@ -95,6 +121,8 @@ export function HomePage({
     const balances = new Map(members.map((member) => [member.userId, 0]))
 
     expenses.forEach((expense) => {
+      if (expense.paymentSource === 'common_fund') return
+
       expense.payments.forEach((payment) => {
         balances.set(payment.userId, (balances.get(payment.userId) ?? 0) + payment.amount)
       })
@@ -205,15 +233,16 @@ export function HomePage({
           message={error}
           onRetry={onRetry}
         />
-      ) : expenses.length === 0 ? (
-        <ExpenseDataState
-          title="Aún no hay gastos"
-          message="Pulsa + para registrar el primero."
-        />
       ) : (
         <>
           <div className="summary-grid">
             <ExpenseSummary total={total} contributions={contributions} />
+            <CommonFundCard
+              {...commonFund}
+              onRetry={onRetryCommonFund}
+              onTopUp={onTopUpFund}
+              onViewFund={onViewFund}
+            />
             <BalanceCard
               debtor={
                 balanceStatus === 'settled'

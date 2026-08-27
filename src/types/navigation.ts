@@ -3,6 +3,7 @@ export type AppPage =
   | 'expenses'
   | 'add-expense'
   | 'expense-detail'
+  | 'common-fund'
   | 'settlements'
   | 'settlement-detail'
   | 'statistics'

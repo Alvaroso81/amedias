@@ -87,7 +87,7 @@ export function ExpensesPage({
 
     return periodExpenses.filter((expense) => {
       const searchableExpense = normalizeSearchValue(
-        `${expense.description} ${expense.category.name} ${expense.payments
+        `${expense.description} ${expense.category.name} ${expense.paymentSource === 'common_fund' ? 'Fondo común' : ''} ${expense.payments
           .map((payment) => payment.displayName)
           .join(' ')}`,
       )

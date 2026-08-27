@@ -1,4 +1,5 @@
 import type { ExpenseType } from './finance'
+import type { PaymentSource } from './commonFund'
 
 export type ExpenseCategory = {
   id: string
@@ -31,8 +32,9 @@ export type CreateExpenseInput = {
   expenseDate: string
   expenseType: ExpenseType
   note: string
-  paidByUserId: string
-  payerAmount: number
+  paymentSource: PaymentSource
+  paidByUserId: string | null
+  payerAmount: number | null
   splits: ExpenseSplitPayload[]
 }
 
@@ -44,6 +46,7 @@ export type UpdateExpenseInput = {
   expenseDate: string
   expenseType: ExpenseType
   note: string
+  paymentSource: PaymentSource
   payments: ExpensePaymentPayload[]
   splits: ExpenseSplitPayload[]
 }

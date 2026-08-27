@@ -52,7 +52,10 @@ export function ExpenseHistoryList({
                 <span className="history-expense-copy">
                   <strong>{expense.description}</strong>
                   <span>{expense.category.name}</span>
-                  <small>{getExpensePayerText(expense)}</small>
+                  <small>
+                    {expense.paymentSource === 'common_fund' && <span className="fund-history-mark" aria-hidden="true">◎</span>}
+                    {getExpensePayerText(expense)}
+                  </small>
                 </span>
                 <strong className="history-expense-amount">{formatCurrency(expense.amount)}</strong>
                 <span className="history-expense-chevron" aria-hidden="true">

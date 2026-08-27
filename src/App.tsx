@@ -6,10 +6,12 @@ import { ExpenseDataState } from './components/ExpenseDataState'
 import { PendingInviteGate } from './components/PendingInviteGate'
 import { SettlementDialog } from './components/SettlementDialog'
 import { useAuth } from './hooks/useAuth'
+import { useCommonFund } from './hooks/useCommonFund'
 import { useExpenses } from './hooks/useExpenses'
 import { useHousehold } from './hooks/useHousehold'
 import { AddExpensePage } from './pages/AddExpensePage'
 import { AuthPage } from './pages/AuthPage'
+import { CommonFundPage } from './pages/CommonFundPage'
 import { ExpenseDetailPage } from './pages/ExpenseDetailPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { HomePage } from './pages/HomePage'
@@ -192,7 +194,9 @@ function ExpenseApp({
   onSignOut,
 }: ExpenseAppProps) {
   const { expenses, members, settlements, loading, error, refresh } = useExpenses(householdId)
+  const commonFund = useCommonFund(householdId, members.length)
   const [currentPage, setCurrentPage] = useState<AppPage>('home')
+  const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null)
   const [expenseNotice, setExpenseNotice] = useState<string | null>(null)
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null)
@@ -246,6 +250,11 @@ function ExpenseApp({
     setCurrentPage('settings')
   }
 
+  const goToCommonFund = (dialog?: 'top-up') => {
+    setCommonFundInitialDialog(dialog)
+    setCurrentPage('common-fund')
+  }
+
   const goToSettlements = () => {
     setSettlementNotice(null)
     setSelectedSettlementId(null)
@@ -253,10 +262,10 @@ function ExpenseApp({
   }
 
   const handleExpenseCreated = useCallback(async () => {
-    await refresh()
+    await Promise.all([refresh(), commonFund.refresh()])
     setSelectedExpenseId(null)
     setCurrentPage('home')
-  }, [refresh])
+  }, [commonFund, refresh])
 
   const openExpense = (expenseId: string) => {
     setExpenseNotice(null)
@@ -265,7 +274,7 @@ function ExpenseApp({
   }
 
   const handleExpenseUpdated = useCallback(async (expenseId: string) => {
-    const didRefresh = await refresh()
+    const [didRefresh] = await Promise.all([refresh(), commonFund.refresh()])
 
     if (!didRefresh) {
       throw new ExpenseServiceError('No hemos podido actualizar el gasto.')
@@ -274,15 +283,15 @@ function ExpenseApp({
     setSelectedExpenseId(expenseId)
     setExpenseNotice('Gasto actualizado')
     setCurrentPage('expense-detail')
-  }, [refresh])
+  }, [commonFund, refresh])
 
   const handleExpenseDeleted = useCallback(async (expenseId: string) => {
     await deleteExpense(expenseId)
-    await refresh()
+    await Promise.all([refresh(), commonFund.refresh()])
     setExpenseNotice(null)
     setSelectedExpenseId(null)
     setCurrentPage('expenses')
-  }, [refresh])
+  }, [commonFund, refresh])
 
   const openSettlement = (settlementId: string) => {
     setSettlementNotice(null)
@@ -324,11 +333,15 @@ function ExpenseApp({
         expenses={expenses}
         members={members}
         settlements={settlements}
+        commonFund={commonFund}
         loading={loading}
         error={error}
         isSigningOut={isSigningOut}
         signOutError={signOutError}
         onRetry={() => void refresh()}
+        onRetryCommonFund={() => void commonFund.retry()}
+        onTopUpFund={() => goToCommonFund('top-up')}
+        onViewFund={() => goToCommonFund()}
         onSelectExpense={openExpense}
         onViewAllExpenses={goToExpenses}
         onSettleAccounts={(direction) => {
@@ -357,8 +370,23 @@ function ExpenseApp({
       <AddExpensePage
         householdId={householdId}
         currentUserId={currentUserId}
+        commonFundBalance={commonFund.balance}
+        commonFundEnabled={Boolean(commonFund.settings?.enabled)}
+        commonFundLoading={commonFund.loading}
+        onOpenCommonFund={() => goToCommonFund('top-up')}
         onBack={goHome}
         onCreated={handleExpenseCreated}
+      />
+    )
+  } else if (currentPage === 'common-fund') {
+    pageContent = (
+      <CommonFundPage
+        householdId={householdId}
+        {...commonFund}
+        initialDialog={commonFundInitialDialog}
+        onBack={goHome}
+        onRefresh={commonFund.refresh}
+        onRetry={commonFund.retry}
       />
     )
   } else if (currentPage === 'settings') {
@@ -434,6 +462,9 @@ function ExpenseApp({
       <ExpenseDetailPage
         householdId={householdId}
         expense={selectedExpense}
+        commonFundBalance={commonFund.balance}
+        commonFundEnabled={Boolean(commonFund.settings?.enabled)}
+        commonFundLoading={commonFund.loading}
         onBack={goToExpenses}
         onUpdated={handleExpenseUpdated}
         onDelete={handleExpenseDeleted}

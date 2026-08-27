@@ -9,12 +9,19 @@ import type {
   SavedExpenseSummary,
 } from '../types/expenseCreation'
 import type { ExpenseType } from '../types/finance'
+import type { PaymentSource } from '../types/commonFund'
 import type { ExpenseRecord } from '../types/expenseRead'
 import { calculateExpenseSplits } from '../utils/calculateExpenseSplits'
+import { getCommonFundSplits } from '../utils/expenseEditing'
+import { formatCurrency } from '../utils/formatCurrency'
 
 type AddExpensePageProps = {
   householdId: string
   currentUserId: string
+  commonFundBalance: number
+  commonFundEnabled: boolean
+  commonFundLoading: boolean
+  onOpenCommonFund: () => void
   initialExpense?: ExpenseRecord
   onBack: () => void
   onCreated?: () => void | Promise<void>
@@ -66,6 +73,10 @@ function getInitialSplits(members: ExpenseMember[], initialExpense?: ExpenseReco
 export function AddExpensePage({
   householdId,
   currentUserId,
+  commonFundBalance,
+  commonFundEnabled,
+  commonFundLoading,
+  onOpenCommonFund,
   initialExpense,
   onBack,
   onCreated,
@@ -109,6 +120,10 @@ export function AddExpensePage({
     <ExpenseForm
       householdId={householdId}
       currentUserId={currentUserId}
+      commonFundBalance={commonFundBalance}
+      commonFundEnabled={commonFundEnabled}
+      commonFundLoading={commonFundLoading}
+      onOpenCommonFund={onOpenCommonFund}
       initialExpense={initialExpense}
       categories={formData.categories}
       members={formData.members}
@@ -157,6 +172,10 @@ function ExpenseFormState({
 type ExpenseFormProps = {
   householdId: string
   currentUserId: string
+  commonFundBalance: number
+  commonFundEnabled: boolean
+  commonFundLoading: boolean
+  onOpenCommonFund: () => void
   categories: ExpenseCategory[]
   members: ExpenseMember[]
   initialExpense?: ExpenseRecord
@@ -168,6 +187,10 @@ type ExpenseFormProps = {
 function ExpenseForm({
   householdId,
   currentUserId,
+  commonFundBalance,
+  commonFundEnabled,
+  commonFundLoading,
+  onOpenCommonFund,
   categories,
   members,
   initialExpense,
@@ -187,6 +210,9 @@ function ExpenseForm({
   const [description, setDescription] = useState(initialExpense?.description ?? '')
   const [categoryId, setCategoryId] = useState(initialExpense?.categoryId ?? '')
   const [paidByUserId, setPaidByUserId] = useState(defaultPayerId)
+  const [paymentSource, setPaymentSource] = useState<PaymentSource>(
+    initialExpense?.paymentSource ?? 'member',
+  )
   const [split, setSplit] = useState<SplitValues>(() => getInitialSplits(members, initialExpense))
   const [isSplitOpen, setIsSplitOpen] = useState(Boolean(initialExpense))
   const [date, setDate] = useState(initialExpense?.expenseDate ?? getLocalDate)
@@ -202,9 +228,17 @@ function ExpenseForm({
   const [isSaving, setIsSaving] = useState(false)
   const [savedExpense, setSavedExpense] = useState<SavedExpenseSummary | null>(null)
 
+  const usesCommonFund = paymentSource === 'common_fund'
+  const numericAmount = Number(amount)
+  const fundHasInsufficientBalance =
+    usesCommonFund && Number.isFinite(numericAmount) && numericAmount > commonFundBalance
   const splitEntries = members.map((member) => ({
     member,
-    value: expenseType === 'personal' ? (member.userId === paidByUserId ? '100' : '0') : split[member.userId] ?? '',
+    value: usesCommonFund
+      ? '50'
+      : expenseType === 'personal'
+        ? (member.userId === paidByUserId ? '100' : '0')
+        : split[member.userId] ?? '',
   }))
   const splitTotal = splitEntries.reduce((total, entry) => total + Number(entry.value), 0)
   const splitIsValid =
@@ -282,7 +316,14 @@ function ExpenseForm({
       nextErrors.category = 'Selecciona una categoría'
     }
 
-    if (!paidByUserId || !members.some((member) => member.userId === paidByUserId)) {
+    if (usesCommonFund) {
+      if (!commonFundEnabled || members.length !== 2) {
+        nextErrors.paidBy = 'El fondo común no está disponible'
+      }
+      if (fundHasInsufficientBalance) {
+        nextErrors.amount = 'Saldo insuficiente en el fondo común.'
+      }
+    } else if (!paidByUserId || !members.some((member) => member.userId === paidByUserId)) {
       nextErrors.paidBy = 'Selecciona quién ha pagado'
     }
 
@@ -308,16 +349,17 @@ function ExpenseForm({
     const selectedCategory = categories.find((category) => category.id === categoryId)
     const selectedPayer = members.find((member) => member.userId === paidByUserId)
 
-    if (!selectedCategory || !selectedPayer) return
+    if (!selectedCategory || (!usesCommonFund && !selectedPayer)) return
 
     setIsSaving(true)
 
     try {
+      const effectiveExpenseType: ExpenseType = usesCommonFund ? 'common' : expenseType
       const splits = calculateExpenseSplits(
         numericAmount,
         members,
-        split,
-        expenseType,
+        usesCommonFund ? getCommonFundSplits(members) : split,
+        effectiveExpenseType,
         paidByUserId,
       )
 
@@ -332,9 +374,10 @@ function ExpenseForm({
           amount: numericAmount,
           categoryId,
           expenseDate: date,
-          expenseType,
+          expenseType: effectiveExpenseType,
           note: note.trim(),
-          payments: [{ userId: paidByUserId, amount: numericAmount }],
+          paymentSource,
+          payments: usesCommonFund ? [] : [{ userId: paidByUserId, amount: numericAmount }],
           splits,
         })
 
@@ -354,10 +397,11 @@ function ExpenseForm({
         amount: numericAmount,
         categoryId,
         expenseDate: date,
-        expenseType,
+        expenseType: effectiveExpenseType,
         note: note.trim(),
-        paidByUserId,
-        payerAmount: numericAmount,
+        paymentSource,
+        paidByUserId: usesCommonFund ? null : paidByUserId,
+        payerAmount: usesCommonFund ? null : numericAmount,
         splits,
       })
 
@@ -365,7 +409,7 @@ function ExpenseForm({
         id: expenseId,
         amount: numericAmount,
         description: description.trim(),
-        paidBy: selectedPayer.displayName,
+        paidBy: usesCommonFund ? 'Fondo común' : (selectedPayer?.displayName ?? 'Miembro'),
       })
     } catch (error) {
       setSubmitError(
@@ -485,19 +529,36 @@ function ExpenseForm({
 
         <section className="card form-card sharing-card">
           <fieldset className="form-field form-fieldset">
-            <legend>¿Quién ha pagado?</legend>
+            <legend>¿Cómo se ha pagado?</legend>
             <div className="segmented-control payer-control">
+              <button
+                className={usesCommonFund ? 'segment-button segment-button--active' : 'segment-button'}
+                type="button"
+                disabled={commonFundLoading || !commonFundEnabled || members.length !== 2 || expenseType === 'personal'}
+                aria-pressed={usesCommonFund}
+                onClick={() => {
+                  setPaymentSource('common_fund')
+                  setExpenseType('common')
+                  setSplit(getCommonFundSplits(members))
+                  setIsSplitOpen(false)
+                  clearError('paidBy')
+                  clearError('split')
+                }}
+              >
+                Fondo común
+              </button>
               {members.map((member) => (
                 <button
                   className={
-                    paidByUserId === member.userId
+                    !usesCommonFund && paidByUserId === member.userId
                       ? 'segment-button segment-button--active'
                       : 'segment-button'
                   }
                   type="button"
-                  aria-pressed={paidByUserId === member.userId}
+                  aria-pressed={!usesCommonFund && paidByUserId === member.userId}
                   key={member.userId}
                   onClick={() => {
+                    setPaymentSource('member')
                     setPaidByUserId(member.userId)
                     clearError('paidBy')
                   }}
@@ -507,6 +568,15 @@ function ExpenseForm({
               ))}
             </div>
             {errors.paidBy && <p className="field-error">{errors.paidBy}</p>}
+            <p className="fund-payment-balance">
+              Fondo disponible: <strong>{commonFundLoading ? 'Cargando…' : formatCurrency(commonFundBalance)}</strong>
+            </p>
+            {fundHasInsufficientBalance && (
+              <div className="fund-insufficient-message" role="alert">
+                <span>Saldo insuficiente en el fondo común.</span>
+                <button type="button" onClick={onOpenCommonFund}>Recargar fondo</button>
+              </div>
+            )}
           </fieldset>
 
           <div className="form-divider" />
@@ -527,7 +597,9 @@ function ExpenseForm({
               ))}
             </div>
 
-            {expenseType === 'common' ? (
+            {usesCommonFund ? (
+              <p className="personal-split-note">El fondo común pertenece al 50 % a cada uno.</p>
+            ) : expenseType === 'common' ? (
               <button
                 className="inline-action"
                 type="button"
@@ -541,7 +613,7 @@ function ExpenseForm({
               <p className="personal-split-note">El gasto corresponde íntegramente al pagador.</p>
             )}
 
-            {isSplitOpen && expenseType === 'common' && (
+            {isSplitOpen && !usesCommonFund && expenseType === 'common' && (
               <div className="split-input-grid" id="custom-split">
                 {members.map((member) => (
                   <label key={member.userId}>
@@ -565,7 +637,7 @@ function ExpenseForm({
                 ))}
               </div>
             )}
-            {(errors.split || (isSplitOpen && !splitIsValid)) && (
+            {(errors.split || (isSplitOpen && !usesCommonFund && !splitIsValid)) && (
               <p className="field-error" id="expense-split-error">
                 El reparto debe sumar 100 %
               </p>
@@ -639,8 +711,10 @@ function ExpenseForm({
                     }
                     type="button"
                     aria-pressed={expenseType === 'personal'}
+                    disabled={usesCommonFund}
                     onClick={() => {
                       setExpenseType('personal')
+                      setPaymentSource('member')
                       clearError('split')
                     }}
                   >
@@ -669,7 +743,7 @@ function ExpenseForm({
           </p>
         )}
 
-        <button className="save-expense-button" type="submit" disabled={isSaving}>
+        <button className="save-expense-button" type="submit" disabled={isSaving || fundHasInsufficientBalance}>
           {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar gasto'}
         </button>
       </form>

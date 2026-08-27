@@ -26,12 +26,13 @@ export function BottomNavigation({
 }: BottomNavigationProps) {
   const [home, expenses, statistics, settings] = navigationItems
   const isAddingExpense = currentPage === 'add-expense'
+  const isHomeSection = ['home', 'common-fund'].includes(currentPage)
   const isExpensesSection = ['expenses', 'expense-detail'].includes(currentPage)
   const isSettingsSection = ['settings', 'settlements', 'settlement-detail'].includes(currentPage)
 
   return (
     <nav className="bottom-navigation" aria-label="Navegación principal">
-      <NavItem {...home} active={currentPage === 'home'} onClick={onGoHome} />
+      <NavItem {...home} active={isHomeSection} onClick={onGoHome} />
       <NavItem {...expenses} active={isExpensesSection} onClick={onGoExpenses} />
       <button
         className={`add-expense-button${isAddingExpense ? ' add-expense-button--active' : ''}`}

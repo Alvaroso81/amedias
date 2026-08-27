@@ -1,18 +1,22 @@
 import type { ExpenseRecord } from '../types/expenseRead'
 
 export function getExpensePayerLabel(expense: ExpenseRecord) {
+  if (expense.paymentSource === 'common_fund') return 'Fondo común'
   if (expense.payments.length === 1) return expense.payments[0].displayName
   if (expense.payments.length > 1) return 'varios'
   return 'sin pagador'
 }
 
 export function getExpensePayerText(expense: ExpenseRecord) {
+  if (expense.paymentSource === 'common_fund') return 'Pagó Fondo común'
   if (expense.payments.length === 1) return `Pagó ${expense.payments[0].displayName}`
   if (expense.payments.length > 1) return 'Pagado entre varios'
   return 'Pagador no disponible'
 }
 
 export function getExpenseBalanceImpacts(expense: ExpenseRecord) {
+  if (expense.paymentSource === 'common_fund') return []
+
   const impacts = new Map<string, { userId: string; displayName: string; amount: number }>()
 
   expense.splits.forEach((split) => {

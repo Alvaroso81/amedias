@@ -2,6 +2,7 @@ import type {
   ExpenseMember,
   UpdateExpenseInput,
 } from '../types/expenseCreation'
+import type { PaymentSource } from '../types/commonFund'
 import type { ExpenseRecord } from '../types/expenseRead'
 import type { ExpenseType } from '../types/finance'
 import { calculateExpenseSplits } from './calculateExpenseSplits'
@@ -10,6 +11,7 @@ export type ExpenseEditDraft = {
   description: string
   amount: string
   categoryId: string
+  paymentSource: PaymentSource
   paidByUserId: string
   splits: Record<string, string>
   expenseDate: string
@@ -57,6 +59,10 @@ export function getDefaultExpenseSplits(members: ExpenseMember[]) {
   )
 }
 
+export function getCommonFundSplits(members: ExpenseMember[]) {
+  return Object.fromEntries(members.map((member) => [member.userId, '50']))
+}
+
 export function createExpenseEditDraft(
   expense: ExpenseRecord,
   members: ExpenseMember[],
@@ -78,6 +84,7 @@ export function createExpenseEditDraft(
     description: expense.description,
     amount: String(expense.amount),
     categoryId: expense.categoryId ?? '',
+    paymentSource: expense.paymentSource,
     paidByUserId: expense.payments[0]?.userId ?? members[0]?.userId ?? '',
     splits,
     expenseDate: expense.expenseDate,
@@ -92,6 +99,9 @@ export function buildExpenseUpdateInput(
   members: ExpenseMember[],
 ): UpdateExpenseInput {
   const amount = Number(draft.amount)
+  const usesFund = draft.paymentSource === 'common_fund'
+  const expenseType = usesFund ? 'common' : draft.expenseType
+  const splitValues = usesFund ? getCommonFundSplits(members) : draft.splits
 
   return {
     expenseId,
@@ -99,14 +109,15 @@ export function buildExpenseUpdateInput(
     amount,
     categoryId: draft.categoryId,
     expenseDate: draft.expenseDate,
-    expenseType: draft.expenseType,
+    expenseType,
     note: draft.note.trim(),
-    payments: [{ userId: draft.paidByUserId, amount }],
+    paymentSource: draft.paymentSource,
+    payments: usesFund ? [] : [{ userId: draft.paidByUserId, amount }],
     splits: calculateExpenseSplits(
       amount,
       members,
-      draft.splits,
-      draft.expenseType,
+      splitValues,
+      expenseType,
       draft.paidByUserId,
     ),
   }

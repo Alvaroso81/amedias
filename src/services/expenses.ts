@@ -43,6 +43,11 @@ const knownCreateExpenseErrors = [
   'La suma de los importes del reparto debe coincidir con el gasto',
   'La suma de los porcentajes del reparto debe ser 100',
   'Un gasto personal debe asignarse íntegramente al pagador',
+  'El origen del pago no es válido',
+  'Un gasto del fondo común debe ser de tipo common',
+  'El fondo común requiere exactamente dos miembros',
+  'El fondo común está desactivado',
+  'No hay suficiente dinero en el fondo común.',
 ]
 
 const knownMutationErrors = [
@@ -83,6 +88,11 @@ const knownMutationErrors = [
   'Los importes del reparto deben sumar exactamente el importe del gasto',
   'El reparto debe sumar exactamente 100 %',
   'Un gasto personal debe corresponder íntegramente a una sola persona',
+  'El origen del pago no es válido',
+  'Un gasto del fondo común debe ser de tipo common',
+  'El fondo común requiere exactamente dos miembros',
+  'El fondo común está desactivado',
+  'No hay suficiente dinero en el fondo común.',
 ]
 
 export class ExpenseServiceError extends Error {}
@@ -95,7 +105,7 @@ export async function loadHouseholdExpenses(
       supabase
         .from('expenses')
         .select(
-          'id, household_id, description, amount, expense_date, expense_type, note, category_id, created_by, updated_by, created_at, updated_at',
+          'id, household_id, description, amount, expense_date, expense_type, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
         )
         .eq('household_id', householdId)
         .is('deleted_at', null)
@@ -218,6 +228,7 @@ export async function loadHouseholdExpenses(
       amount: Number(expense.amount),
       expenseDate: expense.expense_date,
       expenseType: expense.expense_type === 'personal' ? 'personal' : 'common',
+      paymentSource: expense.payment_source === 'common_fund' ? 'common_fund' : 'member',
       note: expense.note ?? '',
       categoryId: expense.category_id,
       category: expense.category_id
@@ -324,7 +335,7 @@ export async function loadExpenseFormData(householdId: string) {
 }
 
 export async function createExpense(input: CreateExpenseInput) {
-  const { data, error } = await supabase.rpc('create_expense', {
+  const { data, error } = await supabase.rpc('create_expense_v2', {
     p_household_id: input.householdId,
     p_description: input.description,
     p_amount: input.amount,
@@ -332,6 +343,7 @@ export async function createExpense(input: CreateExpenseInput) {
     p_expense_date: input.expenseDate,
     p_expense_type: input.expenseType,
     p_note: input.note || null,
+    p_payment_source: input.paymentSource,
     p_paid_by_user_id: input.paidByUserId,
     p_payer_amount: input.payerAmount,
     p_splits: input.splits.map((split) => ({
@@ -357,7 +369,7 @@ export async function createExpense(input: CreateExpenseInput) {
 }
 
 export async function updateExpense(input: UpdateExpenseInput) {
-  const { data, error } = await supabase.rpc('update_expense', {
+  const { data, error } = await supabase.rpc('update_expense_v2', {
     p_expense_id: input.expenseId,
     p_description: input.description,
     p_amount: input.amount,
@@ -365,6 +377,7 @@ export async function updateExpense(input: UpdateExpenseInput) {
     p_expense_date: input.expenseDate,
     p_expense_type: input.expenseType,
     p_note: input.note || null,
+    p_payment_source: input.paymentSource,
     p_payments: input.payments.map((payment) => ({
       user_id: payment.userId,
       amount: payment.amount,
@@ -392,7 +405,7 @@ export async function updateExpense(input: UpdateExpenseInput) {
 }
 
 export async function deleteExpense(expenseId: string) {
-  const { data, error } = await supabase.rpc('delete_expense', {
+  const { data, error } = await supabase.rpc('delete_expense_v2', {
     p_expense_id: expenseId,
   })
 

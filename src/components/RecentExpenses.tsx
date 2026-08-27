@@ -34,6 +34,7 @@ export function RecentExpenses({ expenses, onSelectExpense, onViewAll }: RecentE
               <strong>{expense.description}</strong>
               <span>{expense.category.name}</span>
               <small>
+                {expense.paymentSource === 'common_fund' && <span className="fund-history-mark" aria-hidden="true">◎</span>}
                 {getExpensePayerText(expense)} · {formatRelativeExpenseDate(expense.expenseDate)}
               </small>
             </span>

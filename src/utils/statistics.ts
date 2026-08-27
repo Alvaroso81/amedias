@@ -272,6 +272,34 @@ export function getMemberStatistics(
   })
 }
 
+export function getPaymentSourceStatistics(
+  expenses: ExpenseRecord[],
+  members: ExpenseReadMember[],
+) {
+  const memberStatistics = getMemberStatistics(
+    expenses.filter((expense) => expense.paymentSource === 'member'),
+    members,
+    'payments',
+  )
+  const fundAmount = sumExpenses(
+    expenses.filter((expense) => expense.paymentSource === 'common_fund'),
+  )
+  const total = fundAmount + memberStatistics.reduce((sum, member) => sum + member.amount, 0)
+
+  return [
+    {
+      userId: 'common_fund',
+      displayName: 'Fondo común',
+      amount: fundAmount,
+      percentage: total ? (fundAmount / total) * 100 : 0,
+    },
+    ...memberStatistics.map((member) => ({
+      ...member,
+      percentage: total ? (member.amount / total) * 100 : 0,
+    })),
+  ]
+}
+
 function getMonthlyTotalMap(expenses: ExpenseRecord[]) {
   const totals = new Map<string, number>()
 
@@ -403,6 +431,8 @@ export function getCurrentBalance(
   const balances = new Map(members.map((member) => [member.userId, 0]))
 
   expenses.forEach((expense) => {
+    if (expense.paymentSource === 'common_fund') return
+
     expense.payments.forEach((payment) => {
       balances.set(
         payment.userId,

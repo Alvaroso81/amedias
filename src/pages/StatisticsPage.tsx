@@ -18,6 +18,7 @@ import {
   getMonthlyAverage,
   getMonthlyEvolution,
   getPeriodComparison,
+  getPaymentSourceStatistics,
   getPeriodRange,
   getPreviousPeriodRange,
   getTopDescriptions,
@@ -125,7 +126,7 @@ export function StatisticsPage({
       greatestDrop: [...categoryChanges]
         .filter((category) => category.amount < 0)
         .sort((first, second) => first.amount - second.amount)[0],
-      paidBy: getMemberStatistics(currentExpenses, members, 'payments'),
+      paidBy: getPaymentSourceStatistics(currentExpenses, members),
       assumedBy: getMemberStatistics(currentExpenses, members, 'splits'),
       evolution: getMonthlyEvolution(expenses, periodMode, anchorDate),
       monthlyAverage: getMonthlyAverage(expenses, periodMode, anchorDate),
@@ -599,12 +600,12 @@ function CoupleTab({
   return (
     <div className="statistics-tab-content">
       <div className="statistics-pair-grid">
-        <MemberDistribution title="Quién ha pagado" members={paidBy} />
+        <MemberDistribution title="Cómo se han pagado los gastos" members={paidBy} />
         <MemberDistribution title="Quién ha asumido el gasto" members={assumedBy} />
       </div>
 
       <p className="statistics-distribution-help">
-        Pagado muestra quién adelantó el dinero. Asumido muestra a quién corresponde el gasto.
+        El origen de pago muestra de dónde salió el dinero. Asumido muestra a quién corresponde el gasto.
       </p>
 
       <div className="statistics-pair-grid">

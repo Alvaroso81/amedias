@@ -12,6 +12,9 @@ import {
 type ExpenseDetailPageProps = {
   expense: ExpenseRecord
   householdId: string
+  commonFundBalance: number
+  commonFundEnabled: boolean
+  commonFundLoading: boolean
   onBack: () => void
   onUpdated: (expenseId: string) => void | Promise<void>
   onDelete: (expenseId: string) => Promise<void>
@@ -21,6 +24,9 @@ type ExpenseDetailPageProps = {
 export function ExpenseDetailPage({
   expense,
   householdId,
+  commonFundBalance,
+  commonFundEnabled,
+  commonFundLoading,
   onBack,
   onUpdated,
   onDelete,
@@ -82,6 +88,9 @@ export function ExpenseDetailPage({
       <EditableExpenseDetails
         expense={expense}
         householdId={householdId}
+        commonFundBalance={commonFundBalance}
+        commonFundEnabled={commonFundEnabled}
+        commonFundLoading={commonFundLoading}
         onUpdated={onUpdated}
       />
 
@@ -90,19 +99,26 @@ export function ExpenseDetailPage({
           Efecto sobre el balance
         </p>
         <div className="impact-shares">
-          {impacts.map((impact) => (
+          {(expense.paymentSource === 'common_fund' ? expense.splits.map((split) => ({
+            userId: split.userId,
+            displayName: split.displayName,
+            amount: split.sharePercent ?? 50,
+          })) : impacts).map((impact) => (
             <div key={impact.userId}>
               <span>{impact.displayName}</span>
               <strong>
-                {impact.amount > 0 ? '+' : ''}
-                {formatCurrency(impact.amount)}
+                {expense.paymentSource === 'common_fund'
+                  ? `${impact.amount} % asumido`
+                  : `${impact.amount > 0 ? '+' : ''}${formatCurrency(impact.amount)}`}
               </strong>
             </div>
           ))}
         </div>
         <p className="impact-explanation">
-          {hasDebt
-            ? `${debtor.displayName} debe ${formatCurrency(owedAmount)} a ${creditor.displayName} por este gasto`
+          {expense.paymentSource === 'common_fund'
+            ? 'Este gasto se ha pagado con el fondo común y no modifica el balance personal.'
+            : hasDebt
+              ? `${debtor.displayName} debe ${formatCurrency(owedAmount)} a ${creditor.displayName} por este gasto`
             : `Este gasto no genera deuda pendiente entre sus participantes. Pagador: ${getExpensePayerLabel(expense)}.`}
         </p>
       </section>

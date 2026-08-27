@@ -30,7 +30,7 @@ export function ExpenseSummary({ total, contributions }: ExpenseSummaryProps) {
         aria-label={contributions
           .map(
             (contribution) =>
-              `${contribution.name} aporta ${contribution.percentage} por ciento`,
+              `Con ${contribution.name} se pagó el ${contribution.percentage} por ciento`,
           )
           .join(' y ')}
       >
