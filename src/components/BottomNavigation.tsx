@@ -26,7 +26,7 @@ export function BottomNavigation({
 }: BottomNavigationProps) {
   const [home, expenses, statistics, settings] = navigationItems
   const isAddingExpense = currentPage === 'add-expense'
-  const isExpensesSection = ['expenses', 'expense-detail', 'edit-expense'].includes(currentPage)
+  const isExpensesSection = ['expenses', 'expense-detail'].includes(currentPage)
   const isSettingsSection = ['settings', 'settlements', 'settlement-detail'].includes(currentPage)
 
   return (

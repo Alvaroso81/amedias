@@ -1,0 +1,40 @@
+.balance-card--receivable {
+  background: linear-gradient(145deg, #305e4e, #234b3e);
+  box-shadow: 0 16px 40px rgba(38, 82, 66, 0.16);
+}
+
+.balance-card--payable {
+  background: linear-gradient(145deg, #8a5b54, #70443e);
+  box-shadow: 0 16px 40px rgba(112, 68, 62, 0.16);
+}
+
+.balance-card--payable .primary-button {
+  color: #6b403a;
+}
+
+.balance-card--payable .primary-button:hover {
+  background: #faf1ef;
+}
+
+.balance-card--settled {
+  background: linear-gradient(145deg, #eee6da, #dfd3c2);
+  box-shadow: 0 16px 40px rgba(91, 76, 57, 0.1);
+}
+
+.balance-card--settled::after {
+  border-color: rgba(98, 78, 55, 0.06);
+}
+
+.balance-card--settled .card-label {
+  color: #7c7062;
+}
+
+.balance-card--settled h2,
+.balance-card--settled .balance-amount {
+  color: #3f382f;
+}
+
+.balance-card--receivable .balance-amount,
+.balance-card--settled .balance-amount {
+  margin-bottom: 0;
+}

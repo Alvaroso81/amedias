@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { DeleteExpenseDialog } from '../components/DeleteExpenseDialog'
 import { ExpenseServiceError } from '../services/expenses'
+import { EditableExpenseDetails } from '../components/EditableExpenseDetails'
 import type { ExpenseRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
-import { formatLongDate } from '../utils/formatDate'
 import {
   getExpenseBalanceImpacts,
   getExpensePayerLabel,
@@ -11,16 +11,18 @@ import {
 
 type ExpenseDetailPageProps = {
   expense: ExpenseRecord
+  householdId: string
   onBack: () => void
-  onEdit: () => void
+  onUpdated: (expenseId: string) => void | Promise<void>
   onDelete: (expenseId: string) => Promise<void>
   statusMessage: string | null
 }
 
 export function ExpenseDetailPage({
   expense,
+  householdId,
   onBack,
-  onEdit,
+  onUpdated,
   onDelete,
   statusMessage,
 }: ExpenseDetailPageProps) {
@@ -77,45 +79,11 @@ export function ExpenseDetailPage({
         <span>{expense.category.name}</span>
       </section>
 
-      <section className="card expense-detail-card" aria-label="Información del gasto">
-        <DetailRow label="Concepto" value={expense.description} />
-        <DetailRow label="Importe" value={formatCurrency(expense.amount)} />
-        <DetailRow label="Categoría" value={expense.category.name} />
-        <div className="detail-data-row detail-split-row">
-          <span>Pagado por</span>
-          <div>
-            {expense.payments.length ? (
-              expense.payments.map((payment) => (
-                <strong key={payment.userId}>
-                  {payment.displayName} · {formatCurrency(payment.amount)}
-                </strong>
-              ))
-            ) : (
-              <strong>Pagador no disponible</strong>
-            )}
-          </div>
-        </div>
-        <div className="detail-data-row detail-split-row">
-          <span>Reparto</span>
-          <div>
-            {expense.splits.length ? (
-              expense.splits.map((split) => (
-                <strong key={split.userId}>
-                  {split.displayName}
-                  {split.sharePercent === null ? '' : ` ${split.sharePercent} %`}
-                  {' · '}
-                  {formatCurrency(split.shareAmount)}
-                </strong>
-              ))
-            ) : (
-              <strong>Reparto no disponible</strong>
-            )}
-          </div>
-        </div>
-        <DetailRow label="Fecha" value={formatLongDate(expense.expenseDate)} />
-        <DetailRow label="Tipo" value={expense.expenseType === 'common' ? 'Común' : 'Personal'} />
-        {expense.note && <DetailRow label="Nota" value={expense.note} multiline />}
-      </section>
+      <EditableExpenseDetails
+        expense={expense}
+        householdId={householdId}
+        onUpdated={onUpdated}
+      />
 
       <section className="card balance-impact-card" aria-labelledby="balance-impact-title">
         <p className="card-label" id="balance-impact-title">
@@ -140,9 +108,6 @@ export function ExpenseDetailPage({
       </section>
 
       <div className="expense-detail-actions">
-        <button className="edit-expense-button" type="button" onClick={onEdit}>
-          Editar gasto
-        </button>
         <button
           className="delete-expense-button"
           type="button"
@@ -167,21 +132,6 @@ export function ExpenseDetailPage({
           onConfirm={() => void handleDelete()}
         />
       )}
-    </div>
-  )
-}
-
-type DetailRowProps = {
-  label: string
-  value: string
-  multiline?: boolean
-}
-
-function DetailRow({ label, value, multiline = false }: DetailRowProps) {
-  return (
-    <div className={`detail-data-row${multiline ? ' detail-data-row--multiline' : ''}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
     </div>
   )
 }

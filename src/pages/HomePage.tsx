@@ -18,6 +18,7 @@ type HomePageProps = {
   displayName: string
   householdName: string
   expenses: ExpenseRecord[]
+  currentUserId: string
   members: ExpenseReadMember[]
   settlements: SettlementRecord[]
   loading: boolean
@@ -40,6 +41,7 @@ export function HomePage({
   displayName,
   householdName,
   expenses,
+  currentUserId,
   members,
   settlements,
   loading,
@@ -116,19 +118,45 @@ export function HomePage({
       member,
       amount: roundMoney(balances.get(member.userId) ?? 0),
     }))
-    const creditor = [...memberBalances].sort((first, second) => second.amount - first.amount)[0]
-    const debtor = [...memberBalances].sort((first, second) => first.amount - second.amount)[0]
+    const currentUserBalance = memberBalances.find(
+      ({ member }) => member.userId === currentUserId,
+    )
 
-    if (!creditor || !debtor || creditor.amount < 0.01 || debtor.amount > -0.01) {
-      return { creditor: null, debtor: null, amount: 0 }
+    if (!currentUserBalance || Math.abs(currentUserBalance.amount) < 0.01) {
+      return { creditor: null, debtor: null, amount: 0, currentUserAmount: 0 }
     }
+
+    const counterpart =
+      currentUserBalance.amount > 0
+        ? [...memberBalances]
+            .filter(({ amount }) => amount <= -0.01)
+            .sort((first, second) => first.amount - second.amount)[0]
+        : [...memberBalances]
+            .filter(({ amount }) => amount >= 0.01)
+            .sort((first, second) => second.amount - first.amount)[0]
+
+    if (!counterpart) {
+      return { creditor: null, debtor: null, amount: 0, currentUserAmount: 0 }
+    }
+
+    const creditor = currentUserBalance.amount > 0 ? currentUserBalance : counterpart
+    const debtor = currentUserBalance.amount < 0 ? currentUserBalance : counterpart
 
     return {
       creditor,
       debtor,
       amount: roundMoney(Math.min(creditor.amount, Math.abs(debtor.amount))),
+      currentUserAmount: currentUserBalance.amount,
     }
-  }, [expenses, members, settlements])
+  }, [currentUserId, expenses, members, settlements])
+
+  const balanceStatus =
+    balance.currentUserAmount >= 0.01
+      ? 'receivable'
+      : balance.currentUserAmount <= -0.01
+        ? 'payable'
+        : 'settled'
+  const currentUserCanSettle = balanceStatus === 'payable'
 
   const categories = useMemo(() => {
     const categoryTotals = new Map<string, CategoryExpense>()
@@ -187,9 +215,19 @@ export function HomePage({
           <div className="summary-grid">
             <ExpenseSummary total={total} contributions={contributions} />
             <BalanceCard
-              debtor={balance.debtor?.member.displayName ?? null}
-              creditor={balance.creditor?.member.displayName ?? null}
-              amount={balance.amount}
+              debtor={
+                balanceStatus === 'settled'
+                  ? null
+                  : (balance.debtor?.member.displayName ?? null)
+              }
+              creditor={
+                balanceStatus === 'settled'
+                  ? null
+                  : (balance.creditor?.member.displayName ?? null)
+              }
+              amount={balanceStatus === 'settled' ? 0 : balance.amount}
+              status={balanceStatus}
+              canSettle={currentUserCanSettle}
               onSettleAccounts={() => {
                 if (!balance.debtor || !balance.creditor) return
 

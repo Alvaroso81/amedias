@@ -17,7 +17,7 @@ import { HouseholdOnboardingPage } from './pages/HouseholdOnboardingPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SettlementDetailPage } from './pages/SettlementDetailPage'
 import { SettlementsPage } from './pages/SettlementsPage'
-import { deleteExpense } from './services/expenses'
+import { deleteExpense, ExpenseServiceError } from './services/expenses'
 import { deleteSettlement } from './services/settlements'
 import { supabase } from './services/supabase'
 import type { HouseholdRole } from './types/household'
@@ -265,7 +265,12 @@ function ExpenseApp({
   }
 
   const handleExpenseUpdated = useCallback(async (expenseId: string) => {
-    await refresh()
+    const didRefresh = await refresh()
+
+    if (!didRefresh) {
+      throw new ExpenseServiceError('No hemos podido actualizar el gasto.')
+    }
+
     setSelectedExpenseId(expenseId)
     setExpenseNotice('Gasto actualizado')
     setCurrentPage('expense-detail')
@@ -315,6 +320,7 @@ function ExpenseApp({
       <HomePage
         displayName={displayName}
         householdName={householdName}
+        currentUserId={currentUserId}
         expenses={expenses}
         members={members}
         settlements={settlements}
@@ -353,16 +359,6 @@ function ExpenseApp({
         currentUserId={currentUserId}
         onBack={goHome}
         onCreated={handleExpenseCreated}
-      />
-    )
-  } else if (currentPage === 'edit-expense' && selectedExpense) {
-    pageContent = (
-      <AddExpensePage
-        householdId={householdId}
-        currentUserId={currentUserId}
-        initialExpense={selectedExpense}
-        onBack={() => setCurrentPage('expense-detail')}
-        onUpdated={handleExpenseUpdated}
       />
     )
   } else if (currentPage === 'settings') {
@@ -436,9 +432,10 @@ function ExpenseApp({
   } else if (currentPage === 'expense-detail' && selectedExpense) {
     pageContent = (
       <ExpenseDetailPage
+        householdId={householdId}
         expense={selectedExpense}
         onBack={goToExpenses}
-        onEdit={() => setCurrentPage('edit-expense')}
+        onUpdated={handleExpenseUpdated}
         onDelete={handleExpenseDeleted}
         statusMessage={expenseNotice}
       />

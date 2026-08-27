@@ -1,0 +1,113 @@
+import type {
+  ExpenseMember,
+  UpdateExpenseInput,
+} from '../types/expenseCreation'
+import type { ExpenseRecord } from '../types/expenseRead'
+import type { ExpenseType } from '../types/finance'
+import { calculateExpenseSplits } from './calculateExpenseSplits'
+
+export type ExpenseEditDraft = {
+  description: string
+  amount: string
+  categoryId: string
+  paidByUserId: string
+  splits: Record<string, string>
+  expenseDate: string
+  expenseType: ExpenseType
+  note: string
+}
+
+function allocatePercentages(weights: number[]) {
+  const safeWeights = weights.map((weight) => Math.max(0, weight))
+  const totalWeight = safeWeights.reduce((total, weight) => total + weight, 0)
+  const effectiveWeights = totalWeight > 0 ? safeWeights : safeWeights.map(() => 1)
+  const effectiveTotal = effectiveWeights.reduce((total, weight) => total + weight, 0)
+  const allocations = effectiveWeights.map((weight, index) => {
+    const exactBasisPoints = (weight / effectiveTotal) * 10_000
+    const basisPoints = Math.floor(exactBasisPoints)
+
+    return {
+      index,
+      basisPoints,
+      remainder: exactBasisPoints - basisPoints,
+    }
+  })
+  const allocatedBasisPoints = allocations.reduce(
+    (total, allocation) => total + allocation.basisPoints,
+    0,
+  )
+  const remainderOrder = [...allocations].sort(
+    (first, second) => second.remainder - first.remainder || first.index - second.index,
+  )
+
+  for (let index = 0; index < 10_000 - allocatedBasisPoints; index += 1) {
+    remainderOrder[index % remainderOrder.length].basisPoints += 1
+  }
+
+  return allocations.map((allocation) => allocation.basisPoints / 100)
+}
+
+export function getDefaultExpenseSplits(members: ExpenseMember[]) {
+  if (!members.length) return {}
+
+  const percentages = allocatePercentages(members.map((member) => member.defaultShare))
+
+  return Object.fromEntries(
+    members.map((member, index) => [member.userId, String(percentages[index])]),
+  )
+}
+
+export function createExpenseEditDraft(
+  expense: ExpenseRecord,
+  members: ExpenseMember[],
+): ExpenseEditDraft {
+  const splits = Object.fromEntries(
+    members.map((member) => {
+      const savedSplit = expense.splits.find((split) => split.userId === member.userId)
+      const percentage =
+        savedSplit?.sharePercent ??
+        (savedSplit && expense.amount > 0
+          ? Number(((savedSplit.shareAmount / expense.amount) * 100).toFixed(2))
+          : 0)
+
+      return [member.userId, String(percentage)]
+    }),
+  )
+
+  return {
+    description: expense.description,
+    amount: String(expense.amount),
+    categoryId: expense.categoryId ?? '',
+    paidByUserId: expense.payments[0]?.userId ?? members[0]?.userId ?? '',
+    splits,
+    expenseDate: expense.expenseDate,
+    expenseType: expense.expenseType,
+    note: expense.note,
+  }
+}
+
+export function buildExpenseUpdateInput(
+  expenseId: string,
+  draft: ExpenseEditDraft,
+  members: ExpenseMember[],
+): UpdateExpenseInput {
+  const amount = Number(draft.amount)
+
+  return {
+    expenseId,
+    description: draft.description.trim(),
+    amount,
+    categoryId: draft.categoryId,
+    expenseDate: draft.expenseDate,
+    expenseType: draft.expenseType,
+    note: draft.note.trim(),
+    payments: [{ userId: draft.paidByUserId, amount }],
+    splits: calculateExpenseSplits(
+      amount,
+      members,
+      draft.splits,
+      draft.expenseType,
+      draft.paidByUserId,
+    ),
+  }
+}

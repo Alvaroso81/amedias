@@ -31,6 +31,7 @@ export function useExpenses(householdId: string) {
       if (currentRequest !== requestId.current) return
 
       setState({ ...data, loading: false, error: null })
+      return true
     } catch (error) {
       if (currentRequest !== requestId.current) return
 
@@ -43,6 +44,7 @@ export function useExpenses(householdId: string) {
             : 'No hemos podido cargar los gastos.',
       }))
     }
+    return false
   }, [householdId])
 
   useEffect(() => {
