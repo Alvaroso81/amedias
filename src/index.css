@@ -1987,6 +1987,16 @@ button:focus-visible {
   margin-top: 3px;
 }
 
+.split-input-grid--direct {
+  margin-top: 0;
+}
+
+.split-calculated-amount {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 680;
+}
+
 .split-input-grid > label {
   display: grid;
   min-width: 0;

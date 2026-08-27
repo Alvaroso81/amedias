@@ -12,7 +12,11 @@ import type { ExpenseType } from '../types/finance'
 import type { PaymentSource } from '../types/commonFund'
 import type { ExpenseRecord } from '../types/expenseRead'
 import { calculateExpenseSplits } from '../utils/calculateExpenseSplits'
-import { getCommonFundSplits } from '../utils/expenseEditing'
+import {
+  getCommonFundSplits,
+  getDefaultExpenseSplits,
+  updateExpenseSplitPercentages,
+} from '../utils/expenseEditing'
 import { formatCurrency } from '../utils/formatCurrency'
 
 type AddExpensePageProps = {
@@ -61,13 +65,7 @@ function getInitialSplits(members: ExpenseMember[], initialExpense?: ExpenseReco
     )
   }
 
-  if (members.length === 1) {
-    return { [members[0].userId]: '100' }
-  }
-
-  return Object.fromEntries(
-    members.map((member) => [member.userId, String(member.defaultShare)]),
-  )
+  return getDefaultExpenseSplits(members)
 }
 
 export function AddExpensePage({
@@ -214,7 +212,6 @@ function ExpenseForm({
     initialExpense?.paymentSource ?? 'member',
   )
   const [split, setSplit] = useState<SplitValues>(() => getInitialSplits(members, initialExpense))
-  const [isSplitOpen, setIsSplitOpen] = useState(Boolean(initialExpense))
   const [date, setDate] = useState(initialExpense?.expenseDate ?? getLocalDate)
   const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(
     Boolean(initialExpense && (initialExpense.expenseType === 'personal' || initialExpense.note)),
@@ -246,10 +243,29 @@ function ExpenseForm({
     splitEntries.every(
       (entry) =>
         entry.value !== '' &&
+        Number.isFinite(Number(entry.value)) &&
         Number(entry.value) >= 0 &&
-        Number(entry.value) <= 100,
+        Number(entry.value) <= 100 &&
+        Math.abs(Number(entry.value) * 100 - Math.round(Number(entry.value) * 100)) <
+          0.000001,
     ) &&
     Math.abs(splitTotal - 100) < 0.001
+  const calculatedSplitAmounts =
+    !usesCommonFund &&
+    expenseType === 'common' &&
+    splitIsValid &&
+    Number.isFinite(numericAmount) &&
+    numericAmount > 0
+      ? new Map(
+          calculateExpenseSplits(
+            numericAmount,
+            members,
+            split,
+            'common',
+            paidByUserId,
+          ).map((calculatedSplit) => [calculatedSplit.userId, calculatedSplit.shareAmount]),
+        )
+      : new Map<string, number>()
 
   useEffect(() => {
     if (!savedExpense || isEditing || !onCreated) return
@@ -271,33 +287,9 @@ function ExpenseForm({
 
   const handleSplitChange = (userId: string, value: string) => {
     clearError('split')
-
-    if (value === '') {
-      setSplit((currentSplit) => ({ ...currentSplit, [userId]: '' }))
-      return
-    }
-
-    const parsedValue = Number(value)
-    if (!Number.isFinite(parsedValue)) return
-
-    const normalizedValue = Math.min(100, Math.max(0, parsedValue))
-
-    if (members.length === 2) {
-      const otherMember = members.find((member) => member.userId !== userId)
-
-      if (otherMember) {
-        setSplit({
-          [userId]: String(normalizedValue),
-          [otherMember.userId]: String(Number((100 - normalizedValue).toFixed(2))),
-        })
-        return
-      }
-    }
-
-    setSplit((currentSplit) => ({
-      ...currentSplit,
-      [userId]: String(normalizedValue),
-    }))
+    setSplit((currentSplit) =>
+      updateExpenseSplitPercentages(members, currentSplit, userId, value),
+    )
   }
 
   const validateForm = () => {
@@ -540,7 +532,6 @@ function ExpenseForm({
                   setPaymentSource('common_fund')
                   setExpenseType('common')
                   setSplit(getCommonFundSplits(members))
-                  setIsSplitOpen(false)
                   clearError('paidBy')
                   clearError('split')
                 }}
@@ -583,41 +574,11 @@ function ExpenseForm({
 
           <fieldset className="form-field form-fieldset split-fieldset">
             <legend>¿Cómo se reparte?</legend>
-            <div
-              className="split-summary"
-              aria-label={splitEntries
-                .map((entry) => `${entry.member.displayName} ${entry.value || 0} por ciento`)
-                .join(', ')}
-            >
-              {splitEntries.map((entry) => (
-                <div key={entry.member.userId}>
-                  <span>{entry.member.displayName}</span>
-                  <strong>{entry.value || 0} %</strong>
-                </div>
-              ))}
-            </div>
-
-            {usesCommonFund ? (
-              <p className="personal-split-note">El fondo común pertenece al 50 % a cada uno.</p>
-            ) : expenseType === 'common' ? (
-              <button
-                className="inline-action"
-                type="button"
-                aria-expanded={isSplitOpen}
-                aria-controls="custom-split"
-                onClick={() => setIsSplitOpen((isOpen) => !isOpen)}
-              >
-                {isSplitOpen ? 'Ocultar reparto' : 'Personalizar reparto'}
-              </button>
-            ) : (
-              <p className="personal-split-note">El gasto corresponde íntegramente al pagador.</p>
-            )}
-
-            {isSplitOpen && !usesCommonFund && expenseType === 'common' && (
-              <div className="split-input-grid" id="custom-split">
-                {members.map((member) => (
-                  <label key={member.userId}>
-                    <span>{member.displayName}</span>
+            {!usesCommonFund && expenseType === 'common' ? (
+              <div className="split-input-grid split-input-grid--direct">
+                {splitEntries.map((entry) => (
+                  <label key={entry.member.userId}>
+                    <span>{entry.member.displayName}</span>
                     <span className="percentage-input-wrap">
                       <input
                         type="number"
@@ -625,21 +586,54 @@ function ExpenseForm({
                         min="0"
                         max="100"
                         step="0.01"
-                        value={split[member.userId] ?? ''}
-                        aria-label={`Porcentaje de ${member.displayName}`}
-                        aria-invalid={!splitIsValid}
-                        aria-describedby={!splitIsValid ? 'expense-split-error' : undefined}
-                        onChange={(event) => handleSplitChange(member.userId, event.target.value)}
+                        value={entry.value}
+                        aria-label={'Porcentaje de ' + entry.member.displayName}
+                        aria-invalid={Boolean(errors.split)}
+                        aria-describedby={errors.split ? 'expense-split-error' : undefined}
+                        onFocus={(event) => event.currentTarget.select()}
+                        onChange={(event) =>
+                          handleSplitChange(entry.member.userId, event.target.value)
+                        }
                       />
                       <span aria-hidden="true">%</span>
                     </span>
+                    {calculatedSplitAmounts.has(entry.member.userId) && (
+                      <small className="split-calculated-amount">
+                        {formatCurrency(calculatedSplitAmounts.get(entry.member.userId) ?? 0)}
+                      </small>
+                    )}
                   </label>
                 ))}
               </div>
+            ) : (
+              <div
+                className="split-summary"
+                aria-label={splitEntries
+                  .map((entry) => [entry.member.displayName, entry.value || 0, 'por ciento'].join(' '))
+                  .join(', ')}
+              >
+                {splitEntries.map((entry) => (
+                  <div key={entry.member.userId}>
+                    <span>{entry.member.displayName}</span>
+                    <strong>{entry.value || 0} %</strong>
+                  </div>
+                ))}
+              </div>
             )}
-            {(errors.split || (isSplitOpen && !usesCommonFund && !splitIsValid)) && (
+
+            {usesCommonFund ? (
+              <p className="personal-split-note">
+                El fondo común se reparte siempre al 50 %.
+              </p>
+            ) : expenseType === 'personal' ? (
+              <p className="personal-split-note">
+                El gasto corresponde íntegramente al pagador.
+              </p>
+            ) : null}
+
+            {errors.split && (
               <p className="field-error" id="expense-split-error">
-                El reparto debe sumar 100 %
+                {errors.split}
               </p>
             )}
           </fieldset>
@@ -697,6 +691,9 @@ function ExpenseForm({
                     type="button"
                     aria-pressed={expenseType === 'common'}
                     onClick={() => {
+                      if (expenseType === 'personal') {
+                        setSplit(getDefaultExpenseSplits(members))
+                      }
                       setExpenseType('common')
                       clearError('split')
                     }}

@@ -63,6 +63,35 @@ export function getCommonFundSplits(members: ExpenseMember[]) {
   return Object.fromEntries(members.map((member) => [member.userId, '50']))
 }
 
+export function updateExpenseSplitPercentages(
+  members: ExpenseMember[],
+  currentSplits: Record<string, string>,
+  userId: string,
+  value: string,
+) {
+  if (!members.some((member) => member.userId === userId)) return currentSplits
+  if (value === '') return { ...currentSplits, [userId]: '' }
+
+  const parsedValue = Number(value)
+  if (!Number.isFinite(parsedValue)) return currentSplits
+
+  const normalizedValue = Math.min(
+    100,
+    Math.max(0, Math.round((parsedValue + Number.EPSILON) * 100) / 100),
+  )
+  const nextSplits = { ...currentSplits, [userId]: String(normalizedValue) }
+
+  if (members.length !== 2) return nextSplits
+
+  const otherMember = members.find((member) => member.userId !== userId)
+  if (!otherMember) return nextSplits
+
+  return {
+    [userId]: String(normalizedValue),
+    [otherMember.userId]: String(Number((100 - normalizedValue).toFixed(2))),
+  }
+}
+
 export function createExpenseEditDraft(
   expense: ExpenseRecord,
   members: ExpenseMember[],

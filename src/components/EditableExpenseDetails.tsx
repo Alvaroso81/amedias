@@ -11,6 +11,7 @@ import {
   createExpenseEditDraft,
   getCommonFundSplits,
   getDefaultExpenseSplits,
+  updateExpenseSplitPercentages,
 } from '../utils/expenseEditing'
 import type { ExpenseEditDraft } from '../utils/expenseEditing'
 import { formatCurrency } from '../utils/formatCurrency'
@@ -166,31 +167,14 @@ export function EditableExpenseDetails({
   const handleSplitChange = (userId: string, value: string) => {
     if (!draft) return
 
-    if (value === '') {
-      updateDraft({ splits: { ...draft.splits, [userId]: '' } })
-      return
-    }
-
-    const parsedValue = Number(value)
-    if (!Number.isFinite(parsedValue)) return
-
-    const normalizedValue = Math.min(100, Math.max(0, parsedValue))
-
-    if (formData.members.length === 2) {
-      const otherMember = formData.members.find((member) => member.userId !== userId)
-
-      if (otherMember) {
-        updateDraft({
-          splits: {
-            [userId]: String(normalizedValue),
-            [otherMember.userId]: String(Number((100 - normalizedValue).toFixed(2))),
-          },
-        })
-        return
-      }
-    }
-
-    updateDraft({ splits: { ...draft.splits, [userId]: String(normalizedValue) } })
+    updateDraft({
+      splits: updateExpenseSplitPercentages(
+        formData.members,
+        draft.splits,
+        userId,
+        value,
+      ),
+    })
   }
 
   const handleTypeChange = (expenseType: ExpenseType) => {
@@ -336,12 +320,11 @@ export function EditableExpenseDetails({
         >
           {draft.paymentSource === 'common_fund' ? (
             <p className="inline-personal-note">
-              El fondo común pertenece al 50 % a cada uno. Este reparto no modifica el balance personal.
+              El fondo común se reparte siempre al 50 %. Este reparto no modifica el balance personal.
             </p>
           ) : draft.expenseType === 'personal' ? (
             <p className="inline-personal-note">
-              El gasto personal corresponde al 100 % al pagador. Cambia el tipo a Común para
-              personalizarlo.
+              El gasto personal corresponde al 100 % al pagador. Cambia el tipo a Común para editar el reparto.
             </p>
           ) : (
             <div className="split-input-grid inline-split-inputs">
@@ -357,6 +340,7 @@ export function EditableExpenseDetails({
                       step="0.01"
                       value={draft.splits[member.userId] ?? ''}
                       aria-label={`Porcentaje de ${member.displayName}`}
+                      onFocus={(event) => event.currentTarget.select()}
                       onChange={(event) => handleSplitChange(member.userId, event.target.value)}
                     />
                     <span aria-hidden="true">%</span>
