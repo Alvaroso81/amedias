@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ExpenseServiceError, loadHouseholdExpenses } from '../services/expenses'
 import type { HouseholdExpenseData } from '../types/expenseRead'
 
@@ -13,7 +13,7 @@ const emptyExpenseData: HouseholdExpenseData = {
   settlements: [],
 }
 
-export function useExpenses(householdId: string) {
+export function useExpenses(householdId: string, currentUserId: string) {
   const requestId = useRef(0)
   const [state, setState] = useState<ExpensesState>({
     ...emptyExpenseData,
@@ -56,5 +56,19 @@ export function useExpenses(householdId: string) {
     }
   }, [refresh])
 
-  return { ...state, refresh }
+  const commonExpenses = useMemo(
+    () => state.expenses.filter((expense) => expense.expenseType === 'common'),
+    [state.expenses],
+  )
+  const myPersonalExpenses = useMemo(
+    () =>
+      state.expenses.filter(
+        (expense) =>
+          expense.expenseType === 'personal' &&
+          expense.personalOwnerId === currentUserId,
+      ),
+    [currentUserId, state.expenses],
+  )
+
+  return { ...state, visibleExpenses: state.expenses, commonExpenses, myPersonalExpenses, refresh }
 }

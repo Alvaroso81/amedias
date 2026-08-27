@@ -43,6 +43,7 @@ const knownCreateExpenseErrors = [
   'La suma de los importes del reparto debe coincidir con el gasto',
   'La suma de los porcentajes del reparto debe ser 100',
   'Un gasto personal debe asignarse íntegramente al pagador',
+  'Un gasto personal no puede pagarse con el fondo común',
   'El origen del pago no es válido',
   'Un gasto del fondo común debe ser de tipo common',
   'El fondo común requiere exactamente dos miembros',
@@ -88,6 +89,9 @@ const knownMutationErrors = [
   'Los importes del reparto deben sumar exactamente el importe del gasto',
   'El reparto debe sumar exactamente 100 %',
   'Un gasto personal debe corresponder íntegramente a una sola persona',
+  'No tienes acceso a este gasto',
+  'Un gasto común no puede convertirse en personal',
+  'Un gasto personal no puede pagarse con el fondo común',
   'El origen del pago no es válido',
   'Un gasto del fondo común debe ser de tipo common',
   'El fondo común requiere exactamente dos miembros',
@@ -105,7 +109,7 @@ export async function loadHouseholdExpenses(
       supabase
         .from('expenses')
         .select(
-          'id, household_id, description, amount, expense_date, expense_type, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
+          'id, household_id, description, amount, expense_date, expense_type, personal_owner_id, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
         )
         .eq('household_id', householdId)
         .is('deleted_at', null)
@@ -228,6 +232,7 @@ export async function loadHouseholdExpenses(
       amount: Number(expense.amount),
       expenseDate: expense.expense_date,
       expenseType: expense.expense_type === 'personal' ? 'personal' : 'common',
+      personalOwnerId: expense.personal_owner_id,
       paymentSource: expense.payment_source === 'common_fund' ? 'common_fund' : 'member',
       note: expense.note ?? '',
       categoryId: expense.category_id,

@@ -32,8 +32,11 @@ import {
 
 type StatisticsTab = 'summary' | 'categories' | 'evolution' | 'couple'
 
+type StatisticsScope = 'common' | 'personal'
 type StatisticsPageProps = {
-  expenses: ExpenseRecord[]
+  commonExpenses: ExpenseRecord[]
+  personalExpenses: ExpenseRecord[]
+  currentUserId: string
   members: ExpenseReadMember[]
   settlements: SettlementRecord[]
   loading: boolean
@@ -85,7 +88,9 @@ function getPreviousPeriodLabel(mode: StatisticsPeriodMode, anchorDate: Date) {
 }
 
 export function StatisticsPage({
-  expenses,
+  commonExpenses,
+  personalExpenses,
+  currentUserId,
   members,
   settlements,
   loading,
@@ -96,15 +101,25 @@ export function StatisticsPage({
   const [periodMode, setPeriodMode] = useState<StatisticsPeriodMode>('month')
   const [anchorDate, setAnchorDate] = useState(getInitialMonth)
   const [activeTab, setActiveTab] = useState<StatisticsTab>('summary')
+  const [scope, setScope] = useState<StatisticsScope>('common')
 
+  const scopedExpenses = useMemo(
+    () =>
+      scope === 'common'
+        ? commonExpenses
+        : personalExpenses.filter((expense) => expense.personalOwnerId === currentUserId),
+    [commonExpenses, currentUserId, personalExpenses, scope],
+  )
+  const visibleTabs = scope === 'personal' ? tabs.filter((tab) => tab.value !== 'couple') : tabs
   const statistics = useMemo(() => {
     const currentRange = getPeriodRange(periodMode, anchorDate)
     const previousRange = getPreviousPeriodRange(periodMode, anchorDate)
-    const currentExpenses = filterExpensesByRange(expenses, currentRange)
+    const currentExpenses = filterExpensesByRange(scopedExpenses, currentRange)
     const previousExpenses = previousRange
-      ? filterExpensesByRange(expenses, previousRange)
+      ? filterExpensesByRange(scopedExpenses, previousRange)
       : []
-    const periodSettlements = filterSettlementsByRange(settlements, currentRange)
+    const periodSettlements =
+      scope === 'common' ? filterSettlementsByRange(settlements, currentRange) : []
     const total = sumExpenses(currentExpenses)
     const previousTotal = sumExpenses(previousExpenses)
     const categories = getCategoryStatistics(currentExpenses, previousExpenses)
@@ -128,13 +143,16 @@ export function StatisticsPage({
         .sort((first, second) => first.amount - second.amount)[0],
       paidBy: getPaymentSourceStatistics(currentExpenses, members),
       assumedBy: getMemberStatistics(currentExpenses, members, 'splits'),
-      evolution: getMonthlyEvolution(expenses, periodMode, anchorDate),
-      monthlyAverage: getMonthlyAverage(expenses, periodMode, anchorDate),
+      evolution: getMonthlyEvolution(scopedExpenses, periodMode, anchorDate),
+      monthlyAverage: getMonthlyAverage(scopedExpenses, periodMode, anchorDate),
       topDescriptions: getTopDescriptions(currentExpenses),
-      currentBalance: getCurrentBalance(expenses, settlements, members),
+      currentBalance:
+        scope === 'common'
+          ? getCurrentBalance(scopedExpenses, settlements, members)
+          : { debtor: null, creditor: null, amount: 0 },
       settledTotal: sumSettlements(periodSettlements),
     }
-  }, [anchorDate, expenses, members, periodMode, settlements])
+  }, [anchorDate, members, periodMode, scope, scopedExpenses, settlements])
 
   const periodLabel = getPeriodLabel(periodMode, anchorDate)
   const previousPeriodLabel = getPreviousPeriodLabel(periodMode, anchorDate)
@@ -156,6 +174,7 @@ export function StatisticsPage({
       categoryId: category.id,
       categoryName: category.name,
       periodMode,
+      scope,
       anchorDate: `${anchorDate.getFullYear()}-${String(anchorDate.getMonth() + 1).padStart(2, '0')}-01`,
     })
   }
@@ -163,9 +182,31 @@ export function StatisticsPage({
   return (
     <div className="statistics-page">
       <header className="statistics-header">
-        <p>Análisis del hogar</p>
+        <p>{scope === 'common' ? 'Análisis del hogar' : 'Análisis personal'}</p>
         <h1>Estadísticas</h1>
       </header>
+      <div className="statistics-scope-control" aria-label="Ámbito de estadísticas">
+        <button
+          className={scope === 'common' ? 'statistics-scope-button--active' : ''}
+          type="button"
+          aria-pressed={scope === 'common'}
+          onClick={() => setScope('common')}
+        >
+          Comunes
+        </button>
+        <button
+          className={scope === 'personal' ? 'statistics-scope-button--active' : ''}
+          type="button"
+          aria-pressed={scope === 'personal'}
+          onClick={() => {
+            setScope('personal')
+            if (activeTab === 'couple') setActiveTab('summary')
+          }}
+        >
+          Personales
+        </button>
+      </div>
+
 
       <div className="statistics-period-control" aria-label="Periodo de estadísticas">
         {periodModes.map((mode) => (
@@ -202,7 +243,7 @@ export function StatisticsPage({
       )}
 
       <div className="statistics-tabs" role="tablist" aria-label="Secciones de estadísticas">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             id={`statistics-tab-${tab.value}`}
             className={activeTab === tab.value ? 'statistics-tab--active' : ''}
@@ -281,7 +322,7 @@ export function StatisticsPage({
             />
           )}
 
-          {activeTab === 'couple' && (
+          {scope === 'common' && activeTab === 'couple' && (
             <CoupleTab
               paidBy={statistics.paidBy}
               assumedBy={statistics.assumedBy}

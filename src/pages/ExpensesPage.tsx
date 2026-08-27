@@ -13,6 +13,7 @@ import { formatMonthYear, getMonthKey } from '../utils/formatDate'
 
 type ExpensesPageProps = {
   expenses: ExpenseRecord[]
+  currentUserId: string
   members: ExpenseReadMember[]
   loading: boolean
   error: string | null
@@ -31,6 +32,7 @@ function normalizeSearchValue(value: string) {
 
 export function ExpensesPage({
   expenses,
+  currentUserId,
   members,
   loading,
   error,
@@ -55,10 +57,12 @@ export function ExpensesPage({
   const [draftFilters, setDraftFilters] = useState<ExpenseFilters>({
     ...emptyExpenseFilters,
     category: initialCategoryFilter,
+    expenseType: statisticsFilter?.scope ?? 'all',
   })
   const [appliedFilters, setAppliedFilters] = useState<ExpenseFilters>({
     ...emptyExpenseFilters,
     category: initialCategoryFilter,
+    expenseType: statisticsFilter?.scope ?? 'all',
   })
   const selectedMonthKey = getMonthKey(selectedMonth)
 
@@ -102,11 +106,14 @@ export function ExpensesPage({
           : expense.categoryId === appliedFilters.category)
       const matchesType =
         appliedFilters.expenseType === 'all' ||
-        expense.expenseType === appliedFilters.expenseType
+        (appliedFilters.expenseType === 'common'
+          ? expense.expenseType === 'common'
+          : expense.expenseType === 'personal' &&
+            expense.personalOwnerId === currentUserId)
 
       return matchesSearch && matchesPayer && matchesCategory && matchesType
     })
-  }, [appliedFilters, periodExpenses, search])
+  }, [appliedFilters, currentUserId, periodExpenses, search])
 
   const total = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0)
   const activeFilterCount = [

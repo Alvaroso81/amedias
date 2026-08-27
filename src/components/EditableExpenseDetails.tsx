@@ -109,10 +109,12 @@ export function EditableExpenseDetails({
   const [draft, setDraft] = useState<ExpenseEditDraft | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [isConversionDialogOpen, setIsConversionDialogOpen] = useState(false)
   const canEdit = !formData.loading && !formData.error
 
   const startEditing = (field: EditableField) => {
     if (!canEdit || isSaving) return
+    if (expense.expenseType === 'personal' && (field === 'payer' || field === 'split')) return
 
     setDraft(createExpenseEditDraft(expense, formData.members))
     setSaveError(null)
@@ -125,11 +127,11 @@ export function EditableExpenseDetails({
     setActiveField(null)
     setDraft(null)
     setSaveError(null)
+    setIsConversionDialogOpen(false)
   }
 
-  const saveEditing = async () => {
+  const saveEditing = async (conversionConfirmed = false) => {
     if (!draft || isSaving) return
-
     const validationError = validateDraft(
       draft,
       formData.categories,
@@ -144,12 +146,18 @@ export function EditableExpenseDetails({
       return
     }
 
+    if (expense.expenseType === 'personal' && draft.expenseType === 'common' && !conversionConfirmed) {
+      setIsConversionDialogOpen(true)
+      return
+    }
+
     setIsSaving(true)
     setSaveError(null)
 
     try {
       await updateExpense(buildExpenseUpdateInput(expense.id, draft, formData.members))
       await onUpdated(expense.id)
+      setIsConversionDialogOpen(false)
       setActiveField(null)
       setDraft(null)
     } catch (error) {
@@ -395,18 +403,20 @@ export function EditableExpenseDetails({
             >
               Común
             </button>
-            <button
-              className={
-                draft.expenseType === 'personal'
-                  ? 'segment-button segment-button--active'
-                  : 'segment-button'
-              }
-              type="button"
-              aria-pressed={draft.expenseType === 'personal'}
-              onClick={() => handleTypeChange('personal')}
-            >
-              Personal
-            </button>
+            {expense.expenseType === 'personal' && (
+              <button
+                className={
+                  draft.expenseType === 'personal'
+                    ? 'segment-button segment-button--active'
+                    : 'segment-button'
+                }
+                type="button"
+                aria-pressed={draft.expenseType === 'personal'}
+                onClick={() => handleTypeChange('personal')}
+              >
+                Personal
+              </button>
+            )}
           </div>
         </InlineEditor>
       )
@@ -513,6 +523,24 @@ export function EditableExpenseDetails({
       {renderRow('date', 'Fecha', formatLongDate(expense.expenseDate))}
       {renderRow('type', 'Tipo', expense.expenseType === 'common' ? 'Común' : 'Personal')}
       {renderRow('note', 'Nota', expense.note || 'Añadir nota', true)}
+      {isConversionDialogOpen && (
+        <div className="inline-conversion-backdrop">
+          <div className="inline-conversion-dialog" role="dialog" aria-modal="true" aria-labelledby="conversion-title">
+            <h2 id="conversion-title">Convertir en gasto común</h2>
+            <p>
+              Al convertir este gasto en común, será visible para los demás miembros del hogar y podrá afectar al balance.
+            </p>
+            <div className="inline-conversion-actions">
+              <button type="button" disabled={isSaving} onClick={() => void saveEditing(true)}>
+                {isSaving ? 'Guardando...' : 'Convertir y guardar'}
+              </button>
+              <button type="button" disabled={isSaving} onClick={() => setIsConversionDialogOpen(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

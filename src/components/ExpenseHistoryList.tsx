@@ -51,7 +51,10 @@ export function ExpenseHistoryList({
                 </span>
                 <span className="history-expense-copy">
                   <strong>{expense.description}</strong>
-                  <span>{expense.category.name}</span>
+                  <span>
+                    {expense.category.name}
+                    <span className="expense-privacy-mark">{expense.expenseType === 'personal' ? 'Personal' : 'Común'}</span>
+                  </span>
                   <small>
                     {expense.paymentSource === 'common_fund' && <span className="fund-history-mark" aria-hidden="true">◎</span>}
                     {getExpensePayerText(expense)}

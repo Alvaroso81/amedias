@@ -70,10 +70,14 @@ export function HomePage({
   const currentDate = new Date()
   const currentMonthKey = getMonthKey(currentDate)
   const currentPeriod = formatMonthYear(currentDate)
+  const commonExpenses = useMemo(
+    () => expenses.filter((expense) => expense.expenseType === 'common'),
+    [expenses],
+  )
 
   const monthlyExpenses = useMemo(
-    () => expenses.filter((expense) => expense.expenseDate.startsWith(currentMonthKey)),
-    [currentMonthKey, expenses],
+    () => commonExpenses.filter((expense) => expense.expenseDate.startsWith(currentMonthKey)),
+    [commonExpenses, currentMonthKey],
   )
   const total = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
@@ -122,7 +126,7 @@ export function HomePage({
   const balance = useMemo(() => {
     const balances = new Map(members.map((member) => [member.userId, 0]))
 
-    expenses.forEach((expense) => {
+    commonExpenses.forEach((expense) => {
       if (expense.paymentSource === 'common_fund') return
 
       expense.payments.forEach((payment) => {
@@ -178,7 +182,7 @@ export function HomePage({
       amount: roundMoney(Math.min(creditor.amount, Math.abs(debtor.amount))),
       currentUserAmount: currentUserBalance.amount,
     }
-  }, [currentUserId, expenses, members, settlements])
+  }, [commonExpenses, currentUserId, members, settlements])
 
   const balanceStatus =
     balance.currentUserAmount >= 0.01

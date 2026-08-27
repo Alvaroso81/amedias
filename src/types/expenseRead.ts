@@ -34,6 +34,7 @@ export type ExpenseRecord = {
   amount: number
   expenseDate: string
   expenseType: ExpenseType
+  personalOwnerId: string | null
   paymentSource: PaymentSource
   note: string
   categoryId: string | null

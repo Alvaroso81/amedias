@@ -10,7 +10,7 @@ export function ExpenseSummary({ total, contributions }: ExpenseSummaryProps) {
   return (
     <section className="card summary-card" aria-labelledby="expense-summary-title">
       <p className="card-label" id="expense-summary-title">
-        Gastado este mes
+        Gastado en común este mes
       </p>
       <p className="summary-total">{formatCurrency(total)}</p>
 

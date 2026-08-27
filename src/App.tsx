@@ -193,7 +193,16 @@ function ExpenseApp({
   signOutError,
   onSignOut,
 }: ExpenseAppProps) {
-  const { expenses, members, settlements, loading, error, refresh } = useExpenses(householdId)
+  const {
+    visibleExpenses: expenses,
+    commonExpenses,
+    myPersonalExpenses,
+    members,
+    settlements,
+    loading,
+    error,
+    refresh,
+  } = useExpenses(householdId, currentUserId)
   const commonFund = useCommonFund(householdId)
   const [currentPage, setCurrentPage] = useState<AppPage>('home')
   const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
@@ -209,7 +218,7 @@ function ExpenseApp({
     (settlement) => settlement.id === selectedSettlementId,
   )
   const expensesPageKey = statisticsExpenseFilter
-    ? `${statisticsExpenseFilter.periodMode}-${statisticsExpenseFilter.anchorDate}-${statisticsExpenseFilter.categoryId ?? statisticsExpenseFilter.categoryName}`
+    ? `${statisticsExpenseFilter.scope}-${statisticsExpenseFilter.periodMode}-${statisticsExpenseFilter.anchorDate}-${statisticsExpenseFilter.categoryId ?? statisticsExpenseFilter.categoryName}`
     : 'expenses-standard'
 
   useEffect(() => {
@@ -358,6 +367,7 @@ function ExpenseApp({
       <ExpensesPage
         key={expensesPageKey}
         expenses={expenses}
+        currentUserId={currentUserId}
         members={members}
         loading={loading}
         error={error}
@@ -418,7 +428,9 @@ function ExpenseApp({
         )}
       >
         <StatisticsPage
-          expenses={expenses}
+          commonExpenses={commonExpenses}
+          personalExpenses={myPersonalExpenses}
+          currentUserId={currentUserId}
           members={members}
           settlements={settlements}
           loading={loading}
@@ -488,6 +500,7 @@ function ExpenseApp({
     pageContent = (
       <ExpensesPage
         key={expensesPageKey}
+        currentUserId={currentUserId}
         expenses={expenses}
         members={members}
         loading={loading}

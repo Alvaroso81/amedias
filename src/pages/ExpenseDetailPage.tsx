@@ -83,6 +83,10 @@ export function ExpenseDetailPage({
         <p>{expense.description}</p>
         <strong>{formatCurrency(expense.amount)}</strong>
         <span>{expense.category.name}</span>
+        <span className="expense-detail-type">{expense.expenseType === 'personal' ? 'Personal' : 'Común'}</span>
+        {expense.expenseType === 'personal' && (
+          <small className="expense-detail-private-copy">Solo tú puedes ver este gasto.</small>
+        )}
       </section>
 
       <EditableExpenseDetails
@@ -94,9 +98,9 @@ export function ExpenseDetailPage({
         onUpdated={onUpdated}
       />
 
-      <section className="card balance-impact-card" aria-labelledby="balance-impact-title">
+      <section className={`card balance-impact-card${expense.expenseType === 'personal' ? ' balance-impact-card--personal' : ''}`} aria-labelledby="balance-impact-title">
         <p className="card-label" id="balance-impact-title">
-          Efecto sobre el balance
+          {expense.expenseType === 'personal' ? 'Gasto personal' : 'Efecto sobre el balance'}
         </p>
         <div className="impact-shares">
           {(expense.paymentSource === 'common_fund' ? expense.splits.map((split) => ({
@@ -115,8 +119,10 @@ export function ExpenseDetailPage({
           ))}
         </div>
         <p className="impact-explanation">
-          {expense.paymentSource === 'common_fund'
-            ? 'Este gasto se ha pagado con el fondo común y no modifica el balance personal.'
+          {expense.expenseType === 'personal'
+            ? 'Este gasto te corresponde al 100 % y no afecta al balance del hogar.'
+            : expense.paymentSource === 'common_fund'
+              ? 'Este gasto se ha pagado con el fondo común y no modifica el balance personal.'
             : hasDebt
               ? `${debtor.displayName} debe ${formatCurrency(owedAmount)} a ${creditor.displayName} por este gasto`
             : `Este gasto no genera deuda pendiente entre sus participantes. Pagador: ${getExpensePayerLabel(expense)}.`}

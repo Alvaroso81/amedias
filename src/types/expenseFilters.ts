@@ -17,4 +17,5 @@ export type StatisticsExpenseFilter = {
   categoryName: string
   periodMode: 'month' | 'year' | 'history'
   anchorDate: string
+  scope: 'common' | 'personal'
 }

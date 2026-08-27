@@ -225,7 +225,9 @@ function ExpenseForm({
   const [isSaving, setIsSaving] = useState(false)
   const [savedExpense, setSavedExpense] = useState<SavedExpenseSummary | null>(null)
 
-  const usesCommonFund = paymentSource === 'common_fund'
+  const isPersonal = expenseType === 'personal'
+  const usesCommonFund = !isPersonal && paymentSource === 'common_fund'
+  const effectivePayerId = isPersonal ? currentUserId : paidByUserId
   const numericAmount = Number(amount)
   const fundHasInsufficientBalance =
     usesCommonFund && Number.isFinite(numericAmount) && numericAmount > commonFundBalance
@@ -233,8 +235,8 @@ function ExpenseForm({
     member,
     value: usesCommonFund
       ? '50'
-      : expenseType === 'personal'
-        ? (member.userId === paidByUserId ? '100' : '0')
+      : isPersonal
+        ? (member.userId === currentUserId ? '100' : '0')
         : split[member.userId] ?? '',
   }))
   const splitTotal = splitEntries.reduce((total, entry) => total + Number(entry.value), 0)
@@ -262,7 +264,7 @@ function ExpenseForm({
             members,
             split,
             'common',
-            paidByUserId,
+            effectivePayerId,
           ).map((calculatedSplit) => [calculatedSplit.userId, calculatedSplit.shareAmount]),
         )
       : new Map<string, number>()
@@ -315,7 +317,10 @@ function ExpenseForm({
       if (fundHasInsufficientBalance) {
         nextErrors.amount = 'Saldo insuficiente en el fondo común.'
       }
-    } else if (!paidByUserId || !members.some((member) => member.userId === paidByUserId)) {
+    } else if (
+      !effectivePayerId ||
+      !members.some((member) => member.userId === effectivePayerId)
+    ) {
       nextErrors.paidBy = 'Selecciona quién ha pagado'
     }
 
@@ -339,7 +344,7 @@ function ExpenseForm({
 
     const numericAmount = Number(amount)
     const selectedCategory = categories.find((category) => category.id === categoryId)
-    const selectedPayer = members.find((member) => member.userId === paidByUserId)
+    const selectedPayer = members.find((member) => member.userId === effectivePayerId)
 
     if (!selectedCategory || (!usesCommonFund && !selectedPayer)) return
 
@@ -352,7 +357,7 @@ function ExpenseForm({
         members,
         usesCommonFund ? getCommonFundSplits(members) : split,
         effectiveExpenseType,
-        paidByUserId,
+        effectivePayerId,
       )
 
       if (isEditing && initialExpense) {
@@ -368,8 +373,8 @@ function ExpenseForm({
           expenseDate: date,
           expenseType: effectiveExpenseType,
           note: note.trim(),
-          paymentSource,
-          payments: usesCommonFund ? [] : [{ userId: paidByUserId, amount: numericAmount }],
+          paymentSource: isPersonal ? 'member' : paymentSource,
+          payments: usesCommonFund ? [] : [{ userId: effectivePayerId, amount: numericAmount }],
           splits,
         })
 
@@ -391,8 +396,8 @@ function ExpenseForm({
         expenseDate: date,
         expenseType: effectiveExpenseType,
         note: note.trim(),
-        paymentSource,
-        paidByUserId: usesCommonFund ? null : paidByUserId,
+        paymentSource: isPersonal ? 'member' : paymentSource,
+        paidByUserId: usesCommonFund ? null : effectivePayerId,
         payerAmount: usesCommonFund ? null : numericAmount,
         splits,
       })
@@ -538,15 +543,17 @@ function ExpenseForm({
               >
                 Fondo común
               </button>
-              {members.map((member) => (
+              {members
+                .filter((member) => !isPersonal || member.userId === currentUserId)
+                .map((member) => (
                 <button
                   className={
-                    !usesCommonFund && paidByUserId === member.userId
+                    !usesCommonFund && effectivePayerId === member.userId
                       ? 'segment-button segment-button--active'
                       : 'segment-button'
                   }
                   type="button"
-                  aria-pressed={!usesCommonFund && paidByUserId === member.userId}
+                  aria-pressed={!usesCommonFund && effectivePayerId === member.userId}
                   key={member.userId}
                   onClick={() => {
                     setPaymentSource('member')
@@ -559,7 +566,8 @@ function ExpenseForm({
               ))}
             </div>
             {errors.paidBy && <p className="field-error">{errors.paidBy}</p>}
-            <p className="fund-payment-balance">
+            {isPersonal && <p className="personal-privacy-note">Solo tú podrás ver este gasto.</p>}
+            <p className="fund-payment-balance" hidden={isPersonal}>
               Fondo disponible: <strong>{commonFundLoading ? 'Cargando…' : formatCurrency(commonFundBalance)}</strong>
             </p>
             {fundHasInsufficientBalance && (
@@ -612,7 +620,9 @@ function ExpenseForm({
                   .map((entry) => [entry.member.displayName, entry.value || 0, 'por ciento'].join(' '))
                   .join(', ')}
               >
-                {splitEntries.map((entry) => (
+                {splitEntries
+                  .filter((entry) => !isPersonal || entry.member.userId === currentUserId)
+                  .map((entry) => (
                   <div key={entry.member.userId}>
                     <span>{entry.member.displayName}</span>
                     <strong>{entry.value || 0} %</strong>
@@ -627,7 +637,7 @@ function ExpenseForm({
               </p>
             ) : expenseType === 'personal' ? (
               <p className="personal-split-note">
-                El gasto corresponde íntegramente al pagador.
+                Solo tú podrás ver este gasto. Te corresponde el 100 %.
               </p>
             ) : null}
 
@@ -708,10 +718,11 @@ function ExpenseForm({
                     }
                     type="button"
                     aria-pressed={expenseType === 'personal'}
-                    disabled={usesCommonFund}
+                    disabled={usesCommonFund || (isEditing && initialExpense?.expenseType === 'common')}
                     onClick={() => {
                       setExpenseType('personal')
                       setPaymentSource('member')
+                      setPaidByUserId(currentUserId)
                       clearError('split')
                     }}
                   >
