@@ -34,6 +34,7 @@ type HomePageProps = {
   onViewFund: () => void
   onSelectExpense: (expenseId: string) => void
   onViewAllExpenses: () => void
+  onViewStatistics: () => void
   onSettleAccounts: (direction: SettlementDirection) => void
   onSignOut: () => void
   statusMessage: string | null
@@ -61,6 +62,7 @@ export function HomePage({
   onViewFund,
   onSelectExpense,
   onViewAllExpenses,
+  onViewStatistics,
   onSettleAccounts,
   onSignOut,
   statusMessage,
@@ -270,7 +272,7 @@ export function HomePage({
           </div>
 
           <div className="details-grid">
-            <CategoryList categories={categories} />
+            <CategoryList categories={categories} onViewStatistics={onViewStatistics} />
             <RecentExpenses
               expenses={expenses.slice(0, 3)}
               onSelectExpense={onSelectExpense}

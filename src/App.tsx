@@ -344,6 +344,7 @@ function ExpenseApp({
         onViewFund={() => goToCommonFund()}
         onSelectExpense={openExpense}
         onViewAllExpenses={goToExpenses}
+        onViewStatistics={goToStatistics}
         onSettleAccounts={(direction) => {
           setSettlementNotice(null)
           setSettlementDialog({ mode: 'create', direction })

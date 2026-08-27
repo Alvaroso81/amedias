@@ -3,16 +3,17 @@ import { formatCurrency } from '../utils/formatCurrency'
 
 type CategoryListProps = {
   categories: CategoryExpense[]
+  onViewStatistics: () => void
 }
 
-export function CategoryList({ categories }: CategoryListProps) {
+export function CategoryList({ categories, onViewStatistics }: CategoryListProps) {
   const highestAmount = Math.max(0, ...categories.map(({ amount }) => amount))
 
   return (
     <section className="section-block" aria-labelledby="categories-title">
       <div className="section-heading">
         <h2 id="categories-title">Gastos por categoría</h2>
-        <button className="text-button" type="button">
+        <button className="text-button" type="button" onClick={onViewStatistics}>
           Ver estadísticas
         </button>
       </div>
