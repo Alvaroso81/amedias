@@ -5,6 +5,7 @@ import { CommonFundCard } from '../components/CommonFundCard'
 import { CategoryList } from '../components/CategoryList'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import { ExpenseSummary } from '../components/ExpenseSummary'
+import { PersonalExpenseSummary } from '../components/PersonalExpenseSummary'
 import { RecentExpenses } from '../components/RecentExpenses'
 import type { CategoryExpense, PersonContribution } from '../types/finance'
 import type { CommonFundState } from '../types/commonFund'
@@ -35,6 +36,7 @@ type HomePageProps = {
   onSelectExpense: (expenseId: string) => void
   onViewAllExpenses: () => void
   onViewStatistics: () => void
+  onViewPersonalStatistics: () => void
   onSettleAccounts: (direction: SettlementDirection) => void
   onSignOut: () => void
   statusMessage: string | null
@@ -63,6 +65,7 @@ export function HomePage({
   onSelectExpense,
   onViewAllExpenses,
   onViewStatistics,
+  onViewPersonalStatistics,
   onSettleAccounts,
   onSignOut,
   statusMessage,
@@ -80,6 +83,19 @@ export function HomePage({
     [commonExpenses, currentMonthKey],
   )
   const total = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const monthlyPersonalExpenses = useMemo(
+    () =>
+      expenses.filter(
+        (expense) =>
+          expense.expenseType === 'personal' &&
+          expense.personalOwnerId === currentUserId &&
+          expense.expenseDate.startsWith(currentMonthKey),
+      ),
+    [currentMonthKey, currentUserId, expenses],
+  )
+  const personalTotal = roundMoney(
+    monthlyPersonalExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+  )
 
   const contributions = useMemo(() => {
     const paidByMember = new Map(members.map((member) => [member.userId, 0]))
@@ -241,8 +257,17 @@ export function HomePage({
         />
       ) : (
         <>
-          <div className="summary-grid">
+          <div
+            className={`summary-grid${monthlyPersonalExpenses.length ? ' summary-grid--with-personal' : ''}`}
+          >
             <ExpenseSummary total={total} contributions={contributions} />
+            {monthlyPersonalExpenses.length > 0 && (
+              <PersonalExpenseSummary
+                total={personalTotal}
+                expenseCount={monthlyPersonalExpenses.length}
+                onViewPersonalStatistics={onViewPersonalStatistics}
+              />
+            )}
             <CommonFundCard
               {...commonFund}
               onRetry={onRetryCommonFund}

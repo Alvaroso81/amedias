@@ -1406,6 +1406,12 @@ button:focus-visible {
   margin-top: 20px;
 }
 
+.expense-data-state--plain {
+  min-height: 210px;
+  padding-top: 38px;
+  padding-bottom: 38px;
+}
+
 .section-empty-copy {
   margin: 0;
   padding: 28px 10px;

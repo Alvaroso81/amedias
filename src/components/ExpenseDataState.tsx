@@ -11,15 +11,20 @@ export function ExpenseDataState({
   message,
   onRetry,
 }: ExpenseDataStateProps) {
+  const isPlainEmptyState = !loading && !onRetry
+
   return (
-    <section className="card expense-data-state" aria-live="polite">
+    <section
+      className={`card expense-data-state${isPlainEmptyState ? ' expense-data-state--plain' : ''}`}
+      aria-live="polite"
+    >
       {loading ? (
         <span className="loading-spinner" aria-hidden="true" />
-      ) : (
+      ) : onRetry ? (
         <span className="expense-data-state-icon" aria-hidden="true">
-          {onRetry ? '!' : '＋'}
+          !
         </span>
-      )}
+      ) : null}
       <h2>{title}</h2>
       <p>{message}</p>
       {onRetry && (

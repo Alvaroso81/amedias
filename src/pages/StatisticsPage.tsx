@@ -41,6 +41,7 @@ type StatisticsPageProps = {
   settlements: SettlementRecord[]
   loading: boolean
   error: string | null
+  initialScope?: StatisticsScope
   onRetry: () => void
   onSelectCategory: (filter: StatisticsExpenseFilter) => void
 }
@@ -95,13 +96,14 @@ export function StatisticsPage({
   settlements,
   loading,
   error,
+  initialScope = 'common',
   onRetry,
   onSelectCategory,
 }: StatisticsPageProps) {
   const [periodMode, setPeriodMode] = useState<StatisticsPeriodMode>('month')
   const [anchorDate, setAnchorDate] = useState(getInitialMonth)
   const [activeTab, setActiveTab] = useState<StatisticsTab>('summary')
-  const [scope, setScope] = useState<StatisticsScope>('common')
+  const [scope, setScope] = useState<StatisticsScope>(initialScope)
 
   const scopedExpenses = useMemo(
     () =>

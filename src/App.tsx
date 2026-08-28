@@ -205,6 +205,7 @@ function ExpenseApp({
   } = useExpenses(householdId, currentUserId)
   const commonFund = useCommonFund(householdId)
   const [currentPage, setCurrentPage] = useState<AppPage>('home')
+  const [statisticsInitialScope, setStatisticsInitialScope] = useState<'common' | 'personal'>('common')
   const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null)
   const [expenseNotice, setExpenseNotice] = useState<string | null>(null)
@@ -251,6 +252,13 @@ function ExpenseApp({
   const goToStatistics = () => {
     setExpenseNotice(null)
     setSettlementNotice(null)
+    setStatisticsInitialScope('common')
+    setCurrentPage('statistics')
+  }
+  const goToPersonalStatistics = () => {
+    setExpenseNotice(null)
+    setSettlementNotice(null)
+    setStatisticsInitialScope('personal')
     setCurrentPage('statistics')
   }
   const goToSettings = () => {
@@ -354,6 +362,7 @@ function ExpenseApp({
         onSelectExpense={openExpense}
         onViewAllExpenses={goToExpenses}
         onViewStatistics={goToStatistics}
+        onViewPersonalStatistics={goToPersonalStatistics}
         onSettleAccounts={(direction) => {
           setSettlementNotice(null)
           setSettlementDialog({ mode: 'create', direction })
@@ -435,6 +444,7 @@ function ExpenseApp({
           settlements={settlements}
           loading={loading}
           error={error}
+          initialScope={statisticsInitialScope}
           onRetry={() => void refresh()}
           onSelectCategory={(filter) => {
             setStatisticsExpenseFilter(filter)

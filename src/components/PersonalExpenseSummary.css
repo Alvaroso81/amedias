@@ -1,0 +1,100 @@
+.personal-expense-card {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 18px;
+  overflow: hidden;
+  padding: 22px 24px;
+  border-color: rgba(190, 176, 154, 0.3);
+  background: linear-gradient(145deg, #fdfcf9, #f4f0e9);
+  box-shadow: 0 12px 34px rgba(78, 68, 54, 0.055);
+}
+
+.personal-expense-card > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.personal-expense-card p,
+.personal-expense-card span {
+  margin: 0;
+}
+
+.personal-expense-card p {
+  color: #4e493f;
+  font-size: 0.84rem;
+  font-weight: 720;
+}
+
+.personal-expense-card > div:first-child span,
+.personal-expense-card__footer > span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 620;
+}
+
+.personal-expense-card > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #403b33;
+  font-size: clamp(1.9rem, 9vw, 2.7rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.personal-expense-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(170, 154, 130, 0.18);
+}
+
+.personal-expense-card__footer button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgba(129, 108, 80, 0.2);
+  border-radius: 11px;
+  color: #655947;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.personal-expense-card__footer button:hover {
+  background: #ffffff;
+}
+
+@media (min-width: 680px) {
+  .summary-grid--with-personal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-grid--with-personal .personal-expense-card {
+    min-height: 300px;
+    padding: 28px;
+  }
+}
+
+@media (max-width: 374px) {
+  .personal-expense-card {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .personal-expense-card__footer {
+    gap: 10px;
+  }
+
+  .personal-expense-card__footer button {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
