@@ -1993,6 +1993,10 @@ button:focus-visible {
   margin-top: 3px;
 }
 
+.split-shortcuts {
+  margin-bottom: 14px;
+}
+
 .split-input-grid--direct {
   margin-top: 0;
 }
@@ -2048,46 +2052,6 @@ button:focus-visible {
   margin-top: 12px;
 }
 
-.more-options-card {
-  padding: 7px 22px;
-}
-
-.more-options-toggle {
-  display: flex;
-  width: 100%;
-  min-height: 53px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0;
-  border: 0;
-  color: var(--text);
-  background: transparent;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.more-options-toggle:focus-visible {
-  outline: none;
-}
-
-.more-options-toggle:focus-visible .toggle-symbol {
-  outline: 3px solid rgba(55, 110, 90, 0.25);
-  outline-offset: 3px;
-}
-
-.toggle-symbol {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--primary);
-  background: var(--primary-soft);
-  font-size: 1rem;
-}
-
 @supports not (field-sizing: content) {
   .amount-input {
     width: min(10ch, calc(100% - 1.75ch));
@@ -2095,16 +2059,8 @@ button:focus-visible {
   }
 }
 
-.more-options-content {
-  padding-bottom: 15px;
-}
-
-.more-options-content .form-divider {
-  margin-top: 0;
-}
-
-.note-field {
-  margin-top: 20px;
+.note-field textarea {
+  min-height: 76px;
 }
 
 .save-expense-button {
@@ -3690,11 +3646,6 @@ button:focus-visible {
     padding: 26px;
   }
 
-  .more-options-card {
-    padding-right: 26px;
-    padding-left: 26px;
-  }
-
   .summary-grid {
     grid-template-columns: minmax(0, 1.2fr) minmax(285px, 0.8fr);
   }
@@ -3812,11 +3763,6 @@ button:focus-visible {
   .amount-card {
     padding-right: 17px;
     padding-left: 17px;
-  }
-
-  .more-options-card {
-    padding-right: 19px;
-    padding-left: 19px;
   }
 
   .summary-total {

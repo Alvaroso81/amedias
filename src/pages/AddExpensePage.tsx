@@ -8,13 +8,15 @@ import type {
   ExpenseMember,
   SavedExpenseSummary,
 } from '../types/expenseCreation'
-import type { ExpenseType } from '../types/finance'
 import type { PaymentSource } from '../types/commonFund'
 import type { ExpenseRecord } from '../types/expenseRead'
 import { calculateExpenseSplits } from '../utils/calculateExpenseSplits'
 import {
+  deriveExpenseType,
   getCommonFundSplits,
   getDefaultExpenseSplits,
+  getSolePayerSplits,
+  isSolePayerSplit,
   updateExpenseSplitPercentages,
 } from '../utils/expenseEditing'
 import { formatCurrency } from '../utils/formatCurrency'
@@ -213,21 +215,25 @@ function ExpenseForm({
   )
   const [split, setSplit] = useState<SplitValues>(() => getInitialSplits(members, initialExpense))
   const [date, setDate] = useState(initialExpense?.expenseDate ?? getLocalDate)
-  const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(
-    Boolean(initialExpense && (initialExpense.expenseType === 'personal' || initialExpense.note)),
-  )
-  const [expenseType, setExpenseType] = useState<ExpenseType>(
-    initialExpense?.expenseType ?? 'common',
-  )
   const [note, setNote] = useState(initialExpense?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [savedExpense, setSavedExpense] = useState<SavedExpenseSummary | null>(null)
 
+  const canBePersonal =
+    !initialExpense || initialExpense.personalOriginOwnerId === currentUserId
+  const expenseType = deriveExpenseType({
+    paymentSource,
+    paidByUserId,
+    currentUserId,
+    members,
+    splits: split,
+    canBePersonal,
+  })
   const isPersonal = expenseType === 'personal'
-  const usesCommonFund = !isPersonal && paymentSource === 'common_fund'
-  const effectivePayerId = isPersonal ? currentUserId : paidByUserId
+  const usesCommonFund = paymentSource === 'common_fund'
+  const effectivePayerId = paidByUserId
   const numericAmount = Number(amount)
   const fundHasInsufficientBalance =
     usesCommonFund && Number.isFinite(numericAmount) && numericAmount > commonFundBalance
@@ -235,9 +241,7 @@ function ExpenseForm({
     member,
     value: usesCommonFund
       ? '50'
-      : isPersonal
-        ? (member.userId === currentUserId ? '100' : '0')
-        : split[member.userId] ?? '',
+      : split[member.userId] ?? '',
   }))
   const splitTotal = splitEntries.reduce((total, entry) => total + Number(entry.value), 0)
   const splitIsValid =
@@ -253,8 +257,7 @@ function ExpenseForm({
     ) &&
     Math.abs(splitTotal - 100) < 0.001
   const calculatedSplitAmounts =
-    !usesCommonFund &&
-    expenseType === 'common' &&
+    paymentSource === 'member' &&
     splitIsValid &&
     Number.isFinite(numericAmount) &&
     numericAmount > 0
@@ -268,6 +271,20 @@ function ExpenseForm({
           ).map((calculatedSplit) => [calculatedSplit.userId, calculatedSplit.shareAmount]),
         )
       : new Map<string, number>()
+  const selectedPayer = members.find((member) => member.userId === paidByUserId)
+  const hasEqualSplit =
+    members.length === 2 &&
+    members.every((member) => Math.abs(Number(split[member.userId]) - 50) < 0.001)
+  const hasSolePayerSplit = isSolePayerSplit(members, split, paidByUserId)
+  const isOtherMemberSoleExpense =
+    paymentSource === 'member' &&
+    paidByUserId !== currentUserId &&
+    hasSolePayerSplit
+  const expenseTypeHint = isPersonal
+    ? 'Solo tú podrás ver este gasto.'
+    : isOtherMemberSoleExpense
+      ? 'Los gastos personales solo puede registrarlos cada usuario desde su propia cuenta.'
+      : 'Este gasto será compartido.'
 
   useEffect(() => {
     if (!savedExpense || isEditing || !onCreated) return
@@ -344,14 +361,13 @@ function ExpenseForm({
 
     const numericAmount = Number(amount)
     const selectedCategory = categories.find((category) => category.id === categoryId)
-    const selectedPayer = members.find((member) => member.userId === effectivePayerId)
 
     if (!selectedCategory || (!usesCommonFund && !selectedPayer)) return
 
     setIsSaving(true)
 
     try {
-      const effectiveExpenseType: ExpenseType = usesCommonFund ? 'common' : expenseType
+      const effectiveExpenseType = expenseType
       const splits = calculateExpenseSplits(
         numericAmount,
         members,
@@ -531,11 +547,10 @@ function ExpenseForm({
               <button
                 className={usesCommonFund ? 'segment-button segment-button--active' : 'segment-button'}
                 type="button"
-                disabled={commonFundLoading || !commonFundEnabled || members.length !== 2 || expenseType === 'personal'}
+                disabled={commonFundLoading || !commonFundEnabled || members.length !== 2}
                 aria-pressed={usesCommonFund}
                 onClick={() => {
                   setPaymentSource('common_fund')
-                  setExpenseType('common')
                   setSplit(getCommonFundSplits(members))
                   clearError('paidBy')
                   clearError('split')
@@ -543,9 +558,7 @@ function ExpenseForm({
               >
                 Fondo común
               </button>
-              {members
-                .filter((member) => !isPersonal || member.userId === currentUserId)
-                .map((member) => (
+              {members.map((member) => (
                 <button
                   className={
                     !usesCommonFund && effectivePayerId === member.userId
@@ -566,8 +579,7 @@ function ExpenseForm({
               ))}
             </div>
             {errors.paidBy && <p className="field-error">{errors.paidBy}</p>}
-            {isPersonal && <p className="personal-privacy-note">Solo tú podrás ver este gasto.</p>}
-            <p className="fund-payment-balance" hidden={isPersonal}>
+            <p className="fund-payment-balance" hidden={!usesCommonFund}>
               Fondo disponible: <strong>{commonFundLoading ? 'Cargando…' : formatCurrency(commonFundBalance)}</strong>
             </p>
             {fundHasInsufficientBalance && (
@@ -582,7 +594,42 @@ function ExpenseForm({
 
           <fieldset className="form-field form-fieldset split-fieldset">
             <legend>¿Cómo se reparte?</legend>
-            {!usesCommonFund && expenseType === 'common' ? (
+            {!usesCommonFund ? (
+              <>
+                <div className="segmented-control split-shortcuts" aria-label="Atajos de reparto">
+                  <button
+                    className={
+                      hasEqualSplit
+                        ? 'segment-button segment-button--active'
+                        : 'segment-button'
+                    }
+                    type="button"
+                    aria-pressed={hasEqualSplit}
+                    onClick={() => {
+                      setSplit(getCommonFundSplits(members))
+                      clearError('split')
+                    }}
+                  >
+                    50 / 50
+                  </button>
+                  {selectedPayer && (
+                    <button
+                      className={
+                        hasSolePayerSplit
+                          ? 'segment-button segment-button--active'
+                          : 'segment-button'
+                      }
+                      type="button"
+                      aria-pressed={hasSolePayerSplit}
+                      onClick={() => {
+                        setSplit(getSolePayerSplits(members, selectedPayer.userId))
+                        clearError('split')
+                      }}
+                    >
+                      Solo {selectedPayer.displayName}
+                    </button>
+                  )}
+                </div>
               <div className="split-input-grid split-input-grid--direct">
                 {splitEntries.map((entry) => (
                   <label key={entry.member.userId}>
@@ -613,6 +660,8 @@ function ExpenseForm({
                   </label>
                 ))}
               </div>
+                <p className="personal-split-note">{expenseTypeHint}</p>
+              </>
             ) : (
               <div
                 className="split-summary"
@@ -620,9 +669,7 @@ function ExpenseForm({
                   .map((entry) => [entry.member.displayName, entry.value || 0, 'por ciento'].join(' '))
                   .join(', ')}
               >
-                {splitEntries
-                  .filter((entry) => !isPersonal || entry.member.userId === currentUserId)
-                  .map((entry) => (
+                {splitEntries.map((entry) => (
                   <div key={entry.member.userId}>
                     <span>{entry.member.displayName}</span>
                     <strong>{entry.value || 0} %</strong>
@@ -631,15 +678,11 @@ function ExpenseForm({
               </div>
             )}
 
-            {usesCommonFund ? (
+            {usesCommonFund && (
               <p className="personal-split-note">
                 El fondo común se reparte siempre al 50 %.
               </p>
-            ) : expenseType === 'personal' ? (
-              <p className="personal-split-note">
-                Solo tú podrás ver este gasto. Te corresponde el 100 %.
-              </p>
-            ) : null}
+            )}
 
             {errors.split && (
               <p className="field-error" id="expense-split-error">
@@ -670,79 +713,19 @@ function ExpenseForm({
               </p>
             )}
           </div>
-        </section>
 
-        <section className="card more-options-card">
-          <button
-            className="more-options-toggle"
-            type="button"
-            aria-expanded={isMoreOptionsOpen}
-            aria-controls="more-expense-options"
-            onClick={() => setIsMoreOptionsOpen((isOpen) => !isOpen)}
-          >
-            <span>Más opciones</span>
-            <span className="toggle-symbol" aria-hidden="true">
-              {isMoreOptionsOpen ? '−' : '+'}
-            </span>
-          </button>
+          <div className="form-divider" />
 
-          {isMoreOptionsOpen && (
-            <div className="more-options-content" id="more-expense-options">
-              <div className="form-divider" />
-              <fieldset className="form-field form-fieldset">
-                <legend>Tipo de gasto</legend>
-                <div className="segmented-control">
-                  <button
-                    className={
-                      expenseType === 'common'
-                        ? 'segment-button segment-button--active'
-                        : 'segment-button'
-                    }
-                    type="button"
-                    aria-pressed={expenseType === 'common'}
-                    onClick={() => {
-                      if (expenseType === 'personal') {
-                        setSplit(getDefaultExpenseSplits(members))
-                      }
-                      setExpenseType('common')
-                      clearError('split')
-                    }}
-                  >
-                    Común
-                  </button>
-                  <button
-                    className={
-                      expenseType === 'personal'
-                        ? 'segment-button segment-button--active'
-                        : 'segment-button'
-                    }
-                    type="button"
-                    aria-pressed={expenseType === 'personal'}
-                    disabled={usesCommonFund || (isEditing && initialExpense?.expenseType === 'common')}
-                    onClick={() => {
-                      setExpenseType('personal')
-                      setPaymentSource('member')
-                      setPaidByUserId(currentUserId)
-                      clearError('split')
-                    }}
-                  >
-                    Personal
-                  </button>
-                </div>
-              </fieldset>
-
-              <div className="form-field note-field">
-                <label htmlFor="expense-note">Nota</label>
-                <textarea
-                  id="expense-note"
-                  rows={3}
-                  value={note}
-                  placeholder="Añadir una nota..."
-                  onChange={(event) => setNote(event.target.value)}
-                />
-              </div>
-            </div>
-          )}
+          <div className="form-field note-field">
+            <label htmlFor="expense-note">Nota opcional</label>
+            <textarea
+              id="expense-note"
+              rows={2}
+              value={note}
+              placeholder="Añadir una nota..."
+              onChange={(event) => setNote(event.target.value)}
+            />
+          </div>
         </section>
 
         {submitError && (

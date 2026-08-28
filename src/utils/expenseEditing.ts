@@ -63,6 +63,70 @@ export function getCommonFundSplits(members: ExpenseMember[]) {
   return Object.fromEntries(members.map((member) => [member.userId, '50']))
 }
 
+export function getSolePayerSplits(
+  members: ExpenseMember[],
+  paidByUserId: string,
+) {
+  return Object.fromEntries(
+    members.map((member) => [
+      member.userId,
+      member.userId === paidByUserId ? '100' : '0',
+    ]),
+  )
+}
+
+export function isSolePayerSplit(
+  members: ExpenseMember[],
+  splits: Record<string, string>,
+  paidByUserId: string,
+) {
+  if (!paidByUserId || !members.some((member) => member.userId === paidByUserId)) {
+    return false
+  }
+
+  return members.every((member) => {
+    const rawPercentage = splits[member.userId]
+    const percentage = Number(rawPercentage)
+    const expectedPercentage = member.userId === paidByUserId ? 100 : 0
+
+    return (
+      rawPercentage !== undefined &&
+      rawPercentage !== '' &&
+      Number.isFinite(percentage) &&
+      Math.abs(percentage - expectedPercentage) < 0.001
+    )
+  })
+}
+
+type DeriveExpenseTypeInput = {
+  paymentSource: PaymentSource
+  paidByUserId: string
+  currentUserId: string
+  members: ExpenseMember[]
+  splits: Record<string, string>
+  canBePersonal: boolean
+}
+
+export function deriveExpenseType({
+  paymentSource,
+  paidByUserId,
+  currentUserId,
+  members,
+  splits,
+  canBePersonal,
+}: DeriveExpenseTypeInput): ExpenseType {
+  if (
+    canBePersonal &&
+    paymentSource === 'member' &&
+    paidByUserId === currentUserId &&
+    isSolePayerSplit(members, splits, paidByUserId)
+  ) {
+    return 'personal'
+  }
+
+  return 'common'
+}
+
 export function updateExpenseSplitPercentages(
   members: ExpenseMember[],
   currentSplits: Record<string, string>,

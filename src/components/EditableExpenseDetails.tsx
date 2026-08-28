@@ -9,8 +9,10 @@ import type { ExpenseType } from '../types/finance'
 import {
   buildExpenseUpdateInput,
   createExpenseEditDraft,
+  deriveExpenseType,
   getCommonFundSplits,
-  getDefaultExpenseSplits,
+  getSolePayerSplits,
+  isSolePayerSplit,
   updateExpenseSplitPercentages,
 } from '../utils/expenseEditing'
 import type { ExpenseEditDraft } from '../utils/expenseEditing'
@@ -24,7 +26,6 @@ type EditableField =
   | 'payer'
   | 'split'
   | 'date'
-  | 'type'
   | 'note'
 
 type EditableExpenseDetailsProps = {
@@ -73,7 +74,7 @@ function validateDraft(
     return 'Selecciona una fecha válida.'
   }
 
-  if (draft.expenseType === 'common' && draft.paymentSource === 'member') {
+  if (draft.paymentSource === 'member') {
     const percentages = members.map((member) => draft.splits[member.userId] ?? '')
     const parsedPercentages = percentages.map(Number)
     const hasInvalidPercentage = percentages.some((percentage, index) => {
@@ -117,8 +118,6 @@ export function EditableExpenseDetails({
 
   const startEditing = (field: EditableField) => {
     if (!canEdit || isSaving) return
-    if (expense.expenseType === 'personal' && (field === 'payer' || field === 'split')) return
-
     setDraft(createExpenseEditDraft(expense, formData.members))
     setSaveError(null)
     setActiveField(field)
@@ -174,7 +173,23 @@ export function EditableExpenseDetails({
   }
 
   const updateDraft = (changes: Partial<ExpenseEditDraft>) => {
-    setDraft((currentDraft) => currentDraft && { ...currentDraft, ...changes })
+    setDraft((currentDraft) => {
+      if (!currentDraft) return currentDraft
+
+      const nextDraft = { ...currentDraft, ...changes }
+
+      return {
+        ...nextDraft,
+        expenseType: deriveExpenseType({
+          paymentSource: nextDraft.paymentSource,
+          paidByUserId: nextDraft.paidByUserId,
+          currentUserId,
+          members: formData.members,
+          splits: nextDraft.splits,
+          canBePersonal: canRestorePersonal,
+        }),
+      }
+    })
     setSaveError(null)
   }
 
@@ -188,27 +203,6 @@ export function EditableExpenseDetails({
         userId,
         value,
       ),
-    })
-  }
-
-  const handleTypeChange = (expenseType: ExpenseType) => {
-    if (!draft) return
-
-    updateDraft({
-      expenseType,
-      paymentSource: expenseType === 'personal' ? 'member' : draft.paymentSource,
-      paidByUserId: expenseType === 'personal' ? currentUserId : draft.paidByUserId,
-      splits:
-        expenseType === 'common' && draft.expenseType === 'personal'
-          ? getDefaultExpenseSplits(formData.members)
-          : expenseType === 'personal'
-            ? Object.fromEntries(
-                formData.members.map((member) => [
-                  member.userId,
-                  member.userId === currentUserId ? '100' : '0',
-                ]),
-              )
-            : draft.splits,
     })
   }
 
@@ -304,7 +298,6 @@ export function EditableExpenseDetails({
               aria-pressed={draft.paymentSource === 'common_fund'}
               onClick={() => updateDraft({
                 paymentSource: 'common_fund',
-                expenseType: 'common',
                 splits: getCommonFundSplits(formData.members),
               })}
             >
@@ -332,6 +325,27 @@ export function EditableExpenseDetails({
     }
 
     if (field === 'split') {
+      const selectedPayer = formData.members.find(
+        (member) => member.userId === draft.paidByUserId,
+      )
+      const hasEqualSplit =
+        formData.members.length === 2 &&
+        formData.members.every(
+          (member) => Math.abs(Number(draft.splits[member.userId]) - 50) < 0.001,
+        )
+      const hasSolePayerSplit = isSolePayerSplit(
+        formData.members,
+        draft.splits,
+        draft.paidByUserId,
+      )
+      const isOtherMemberSoleExpense =
+        draft.paidByUserId !== currentUserId && hasSolePayerSplit
+      const typeHint = draft.expenseType === 'personal'
+        ? 'Solo tú podrás ver este gasto.'
+        : isOtherMemberSoleExpense
+          ? 'Los gastos personales solo puede registrarlos cada usuario desde su propia cuenta.'
+          : 'Este gasto será compartido.'
+
       return (
         <InlineEditor
           label="Reparto"
@@ -344,12 +358,44 @@ export function EditableExpenseDetails({
             <p className="inline-personal-note">
               El fondo común se reparte siempre al 50 %. Este reparto no modifica el balance personal.
             </p>
-          ) : draft.expenseType === 'personal' ? (
-            <p className="inline-personal-note">
-              El gasto personal corresponde al 100 % al pagador. Cambia el tipo a Común para editar el reparto.
-            </p>
           ) : (
-            <div className="split-input-grid inline-split-inputs">
+            <>
+              <div className="segmented-control inline-split-shortcuts" aria-label="Atajos de reparto">
+                <button
+                  className={
+                    hasEqualSplit
+                      ? 'segment-button segment-button--active'
+                      : 'segment-button'
+                  }
+                  type="button"
+                  aria-pressed={hasEqualSplit}
+                  onClick={() => updateDraft({
+                    splits: getCommonFundSplits(formData.members),
+                  })}
+                >
+                  50 / 50
+                </button>
+                {selectedPayer && (
+                  <button
+                    className={
+                      hasSolePayerSplit
+                        ? 'segment-button segment-button--active'
+                        : 'segment-button'
+                    }
+                    type="button"
+                    aria-pressed={hasSolePayerSplit}
+                    onClick={() => updateDraft({
+                      splits: getSolePayerSplits(
+                        formData.members,
+                        selectedPayer.userId,
+                      ),
+                    })}
+                  >
+                    Solo {selectedPayer.displayName}
+                  </button>
+                )}
+              </div>
+              <div className="split-input-grid inline-split-inputs">
               {formData.members.map((member) => (
                 <label key={member.userId}>
                   <span>{member.displayName}</span>
@@ -369,7 +415,9 @@ export function EditableExpenseDetails({
                   </span>
                 </label>
               ))}
-            </div>
+              </div>
+              <p className="inline-personal-note">{typeHint}</p>
+            </>
           )}
         </InlineEditor>
       )
@@ -391,47 +439,6 @@ export function EditableExpenseDetails({
             aria-label="Fecha"
             onChange={(event) => updateDraft({ expenseDate: event.target.value })}
           />
-        </InlineEditor>
-      )
-    }
-
-    if (field === 'type') {
-      return (
-        <InlineEditor
-          label="Tipo"
-          isSaving={isSaving}
-          error={saveError}
-          onSave={saveEditing}
-          onCancel={cancelEditing}
-        >
-          <div className="segmented-control inline-segmented-control">
-            <button
-              className={
-                draft.expenseType === 'common'
-                  ? 'segment-button segment-button--active'
-                  : 'segment-button'
-              }
-              type="button"
-              aria-pressed={draft.expenseType === 'common'}
-              onClick={() => handleTypeChange('common')}
-            >
-              Común
-            </button>
-            {(expense.expenseType === 'personal' || canRestorePersonal) && (
-              <button
-                className={
-                  draft.expenseType === 'personal'
-                    ? 'segment-button segment-button--active'
-                    : 'segment-button'
-                }
-                type="button"
-                aria-pressed={draft.expenseType === 'personal'}
-                onClick={() => handleTypeChange('personal')}
-              >
-                Personal
-              </button>
-            )}
-          </div>
         </InlineEditor>
       )
     }
@@ -535,7 +542,6 @@ export function EditableExpenseDetails({
         </span>,
       )}
       {renderRow('date', 'Fecha', formatLongDate(expense.expenseDate))}
-      {renderRow('type', 'Tipo', expense.expenseType === 'common' ? 'Común' : 'Personal')}
       {renderRow('note', 'Nota', expense.note || 'Añadir nota', true)}
       {pendingConversion && (
         <div className="inline-conversion-backdrop">

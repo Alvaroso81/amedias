@@ -151,6 +151,10 @@
   grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
 }
 
+.inline-split-shortcuts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .inline-split-inputs {
   margin-top: 0;
 }
