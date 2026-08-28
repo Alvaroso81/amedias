@@ -475,6 +475,7 @@ function ExpenseApp({
       <ExpenseDetailPage
         householdId={householdId}
         expense={selectedExpense}
+        currentUserId={currentUserId}
         commonFundBalance={commonFund.balance}
         commonFundEnabled={Boolean(commonFund.settings?.enabled)}
         commonFundLoading={commonFund.loading}

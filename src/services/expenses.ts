@@ -91,6 +91,7 @@ const knownMutationErrors = [
   'Un gasto personal debe corresponder íntegramente a una sola persona',
   'No tienes acceso a este gasto',
   'Un gasto común no puede convertirse en personal',
+  'No tienes permiso para convertir este gasto en personal',
   'Un gasto personal no puede pagarse con el fondo común',
   'El origen del pago no es válido',
   'Un gasto del fondo común debe ser de tipo common',
@@ -109,7 +110,7 @@ export async function loadHouseholdExpenses(
       supabase
         .from('expenses')
         .select(
-          'id, household_id, description, amount, expense_date, expense_type, personal_owner_id, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
+          'id, household_id, description, amount, expense_date, expense_type, personal_owner_id, personal_origin_owner_id, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
         )
         .eq('household_id', householdId)
         .is('deleted_at', null)
@@ -233,6 +234,7 @@ export async function loadHouseholdExpenses(
       expenseDate: expense.expense_date,
       expenseType: expense.expense_type === 'personal' ? 'personal' : 'common',
       personalOwnerId: expense.personal_owner_id,
+      personalOriginOwnerId: expense.personal_origin_owner_id,
       paymentSource: expense.payment_source === 'common_fund' ? 'common_fund' : 'member',
       note: expense.note ?? '',
       categoryId: expense.category_id,

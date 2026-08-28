@@ -30,6 +30,7 @@ type EditableField =
 type EditableExpenseDetailsProps = {
   expense: ExpenseRecord
   householdId: string
+  currentUserId: string
   commonFundBalance: number
   commonFundEnabled: boolean
   commonFundLoading: boolean
@@ -99,6 +100,7 @@ function validateDraft(
 export function EditableExpenseDetails({
   expense,
   householdId,
+  currentUserId,
   commonFundBalance,
   commonFundEnabled,
   commonFundLoading,
@@ -109,8 +111,9 @@ export function EditableExpenseDetails({
   const [draft, setDraft] = useState<ExpenseEditDraft | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [isConversionDialogOpen, setIsConversionDialogOpen] = useState(false)
+  const [pendingConversion, setPendingConversion] = useState<ExpenseType | null>(null)
   const canEdit = !formData.loading && !formData.error
+  const canRestorePersonal = expense.personalOriginOwnerId === currentUserId
 
   const startEditing = (field: EditableField) => {
     if (!canEdit || isSaving) return
@@ -127,10 +130,10 @@ export function EditableExpenseDetails({
     setActiveField(null)
     setDraft(null)
     setSaveError(null)
-    setIsConversionDialogOpen(false)
+    setPendingConversion(null)
   }
 
-  const saveEditing = async (conversionConfirmed = false) => {
+  const saveEditing = async (confirmedConversion: ExpenseType | null = null) => {
     if (!draft || isSaving) return
     const validationError = validateDraft(
       draft,
@@ -146,8 +149,11 @@ export function EditableExpenseDetails({
       return
     }
 
-    if (expense.expenseType === 'personal' && draft.expenseType === 'common' && !conversionConfirmed) {
-      setIsConversionDialogOpen(true)
+    const conversionTarget =
+      expense.expenseType === draft.expenseType ? null : draft.expenseType
+
+    if (conversionTarget && confirmedConversion !== conversionTarget) {
+      setPendingConversion(conversionTarget)
       return
     }
 
@@ -157,7 +163,7 @@ export function EditableExpenseDetails({
     try {
       await updateExpense(buildExpenseUpdateInput(expense.id, draft, formData.members))
       await onUpdated(expense.id)
-      setIsConversionDialogOpen(false)
+      setPendingConversion(null)
       setActiveField(null)
       setDraft(null)
     } catch (error) {
@@ -191,10 +197,18 @@ export function EditableExpenseDetails({
     updateDraft({
       expenseType,
       paymentSource: expenseType === 'personal' ? 'member' : draft.paymentSource,
+      paidByUserId: expenseType === 'personal' ? currentUserId : draft.paidByUserId,
       splits:
         expenseType === 'common' && draft.expenseType === 'personal'
           ? getDefaultExpenseSplits(formData.members)
-          : draft.splits,
+          : expenseType === 'personal'
+            ? Object.fromEntries(
+                formData.members.map((member) => [
+                  member.userId,
+                  member.userId === currentUserId ? '100' : '0',
+                ]),
+              )
+            : draft.splits,
     })
   }
 
@@ -403,7 +417,7 @@ export function EditableExpenseDetails({
             >
               Común
             </button>
-            {expense.expenseType === 'personal' && (
+            {(expense.expenseType === 'personal' || canRestorePersonal) && (
               <button
                 className={
                   draft.expenseType === 'personal'
@@ -523,18 +537,32 @@ export function EditableExpenseDetails({
       {renderRow('date', 'Fecha', formatLongDate(expense.expenseDate))}
       {renderRow('type', 'Tipo', expense.expenseType === 'common' ? 'Común' : 'Personal')}
       {renderRow('note', 'Nota', expense.note || 'Añadir nota', true)}
-      {isConversionDialogOpen && (
+      {pendingConversion && (
         <div className="inline-conversion-backdrop">
           <div className="inline-conversion-dialog" role="dialog" aria-modal="true" aria-labelledby="conversion-title">
-            <h2 id="conversion-title">Convertir en gasto común</h2>
+            <h2 id="conversion-title">
+              {pendingConversion === 'personal'
+                ? 'Convertir en gasto personal'
+                : 'Convertir en gasto común'}
+            </h2>
             <p>
-              Al convertir este gasto en común, será visible para los demás miembros del hogar y podrá afectar al balance.
+              {pendingConversion === 'personal'
+                ? 'Este gasto dejará de ser visible para los demás miembros del hogar y dejará de formar parte de las cuentas comunes.'
+                : 'Al convertir este gasto en común, será visible para los demás miembros del hogar y podrá afectar al balance.'}
             </p>
             <div className="inline-conversion-actions">
-              <button type="button" disabled={isSaving} onClick={() => void saveEditing(true)}>
-                {isSaving ? 'Guardando...' : 'Convertir y guardar'}
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => void saveEditing(pendingConversion)}
+              >
+                {isSaving
+                  ? 'Guardando...'
+                  : pendingConversion === 'personal'
+                    ? 'Convertir en personal'
+                    : 'Convertir y guardar'}
               </button>
-              <button type="button" disabled={isSaving} onClick={() => setIsConversionDialogOpen(false)}>
+              <button type="button" disabled={isSaving} onClick={() => setPendingConversion(null)}>
                 Cancelar
               </button>
             </div>

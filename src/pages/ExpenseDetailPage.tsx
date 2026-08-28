@@ -12,6 +12,7 @@ import {
 type ExpenseDetailPageProps = {
   expense: ExpenseRecord
   householdId: string
+  currentUserId: string
   commonFundBalance: number
   commonFundEnabled: boolean
   commonFundLoading: boolean
@@ -24,6 +25,7 @@ type ExpenseDetailPageProps = {
 export function ExpenseDetailPage({
   expense,
   householdId,
+  currentUserId,
   commonFundBalance,
   commonFundEnabled,
   commonFundLoading,
@@ -92,6 +94,7 @@ export function ExpenseDetailPage({
       <EditableExpenseDetails
         expense={expense}
         householdId={householdId}
+        currentUserId={currentUserId}
         commonFundBalance={commonFundBalance}
         commonFundEnabled={commonFundEnabled}
         commonFundLoading={commonFundLoading}
