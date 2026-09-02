@@ -509,12 +509,23 @@ button:focus-visible {
   padding: 0 4px;
 }
 
-.app-header h1 {
-  margin: 2px 0 0;
-  color: #1f2e28;
-  font-size: clamp(2rem, 8vw, 2.75rem);
-  line-height: 1.05;
-  letter-spacing: -0.045em;
+.app-header > div:first-child {
+  min-width: 0;
+}
+
+.app-logo-frame {
+  width: min(150px, 100%);
+  height: 42px;
+  overflow: hidden;
+}
+
+.app-logo {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: 150px;
+  mix-blend-mode: multiply;
+  transform: translateY(-54px);
 }
 
 .brand-tagline {
@@ -3665,6 +3676,16 @@ button:focus-visible {
 
   .app-header {
     margin-bottom: 32px;
+  }
+
+  .app-logo-frame {
+    width: 178px;
+    height: 50px;
+  }
+
+  .app-logo {
+    height: 178px;
+    transform: translateY(-64px);
   }
 
   .add-expense-header {

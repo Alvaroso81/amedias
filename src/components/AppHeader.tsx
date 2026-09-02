@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import amediasLogo from '../assets/amedias-logo.png'
 
 type AppHeaderProps = {
   displayName: string
@@ -23,7 +24,9 @@ export function AppHeader({
   return (
     <header className="app-header">
       <div>
-        <h1>Amedias</h1>
+        <div className="app-logo-frame">
+          <img className="app-logo" src={amediasLogo} alt="Amedias" />
+        </div>
         <p className="current-period">{currentPeriod}</p>
         <p className="brand-tagline">Tus gastos compartidos, en equilibrio.</p>
       </div>
