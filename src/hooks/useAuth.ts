@@ -14,14 +14,16 @@ export function useAuth() {
 
   useEffect(() => {
     let isMounted = true
+    let initialSessionValidated = false
 
     const loadInitialSession = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession()
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
         if (!isMounted) return
 
-        if (error) {
+        if (sessionError) {
+          initialSessionValidated = true
           setAuthState({
             session: null,
             user: null,
@@ -31,15 +33,51 @@ export function useAuth() {
           return
         }
 
+        if (!sessionData.session) {
+          initialSessionValidated = true
+          setAuthState({
+            session: null,
+            user: null,
+            loading: false,
+            error: null,
+          })
+          return
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+
+        if (!isMounted) return
+
+        initialSessionValidated = true
+
+        if (userError || !userData.user) {
+          try {
+            await supabase.auth.signOut({ scope: 'local' })
+          } catch {
+            // The app still fails closed below even if local cleanup reports an error.
+          }
+
+          if (!isMounted) return
+
+          setAuthState({
+            session: null,
+            user: null,
+            loading: false,
+            error: null,
+          })
+          return
+        }
+
         setAuthState({
-          session: data.session,
-          user: data.session?.user ?? null,
+          session: sessionData.session,
+          user: userData.user,
           loading: false,
           error: null,
         })
       } catch {
         if (!isMounted) return
 
+        initialSessionValidated = true
         setAuthState({
           session: null,
           user: null,
@@ -51,8 +89,8 @@ export function useAuth() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted || !initialSessionValidated || event === 'INITIAL_SESSION') return
 
       setAuthState({
         session,

@@ -35,14 +35,14 @@ export function useExpenses(householdId: string, currentUserId: string) {
     } catch (error) {
       if (currentRequest !== requestId.current) return
 
-      setState((currentState) => ({
-        ...currentState,
+      setState({
+        ...emptyExpenseData,
         loading: false,
         error:
           error instanceof ExpenseServiceError
             ? error.message
             : 'No hemos podido cargar los gastos.',
-      }))
+      })
     }
     return false
   }, [householdId])

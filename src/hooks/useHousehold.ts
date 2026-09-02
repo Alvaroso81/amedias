@@ -13,6 +13,12 @@ type HouseholdState = {
   error: string | null
 }
 
+const emptyHouseholdState = {
+  profile: null,
+  household: null,
+  membership: null,
+} satisfies Pick<HouseholdState, 'profile' | 'household' | 'membership'>
+
 function getFallbackDisplayName(user: User) {
   const metadataName = user.user_metadata.display_name
 
@@ -26,9 +32,7 @@ function getFallbackDisplayName(user: User) {
 export function useHousehold(user: User) {
   const requestId = useRef(0)
   const [state, setState] = useState<HouseholdState>({
-    profile: null,
-    household: null,
-    membership: null,
+    ...emptyHouseholdState,
     loading: true,
     error: null,
   })
@@ -53,20 +57,20 @@ export function useHousehold(user: User) {
       if (currentRequest !== requestId.current) return
 
       if (profileResult.error) {
-        setState((currentState) => ({
-          ...currentState,
+        setState({
+          ...emptyHouseholdState,
           loading: false,
           error: 'No hemos podido cargar tu perfil.',
-        }))
+        })
         return
       }
 
       if (membershipResult.error) {
-        setState((currentState) => ({
-          ...currentState,
+        setState({
+          ...emptyHouseholdState,
           loading: false,
           error: 'No hemos podido comprobar si perteneces a un hogar.',
-        }))
+        })
         return
       }
 
@@ -127,11 +131,11 @@ export function useHousehold(user: User) {
     } catch {
       if (currentRequest !== requestId.current) return
 
-      setState((currentState) => ({
-        ...currentState,
+      setState({
+        ...emptyHouseholdState,
         loading: false,
         error: 'No hemos podido conectar con tu hogar. Inténtalo de nuevo.',
-      }))
+      })
     }
   }, [user])
 

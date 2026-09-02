@@ -34,14 +34,14 @@ export function useCommonFund(householdId: string) {
     } catch (error) {
       if (currentRequest !== requestId.current) return false
 
-      setState((current) => ({
-        ...current,
+      setState({
+        ...emptyState,
         loading: false,
         error:
           error instanceof CommonFundServiceError
             ? error.message
             : 'No hemos podido cargar el fondo común.',
-      }))
+      })
       return false
     }
   }, [householdId])

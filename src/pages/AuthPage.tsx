@@ -91,6 +91,8 @@ export function AuthPage({ pendingInviteToken, onDiscardInvite }: AuthPageProps)
 
         if (error) {
           setSubmitError(getAuthErrorMessage(error))
+        } else {
+          setPassword('')
         }
 
         return
@@ -113,6 +115,9 @@ export function AuthPage({ pendingInviteToken, onDiscardInvite }: AuthPageProps)
         setSubmitError(getAuthErrorMessage(error))
         return
       }
+
+      setPassword('')
+      setPasswordConfirmation('')
 
       if (data.user && !data.session) {
         setConfirmationEmail(normalizedEmail)
