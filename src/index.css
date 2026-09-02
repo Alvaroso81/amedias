@@ -501,21 +501,29 @@ button:focus-visible {
 }
 
 .app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+  align-items: start;
   margin-bottom: 26px;
   padding: 0 4px;
 }
 
+.app-header::before {
+  width: 46px;
+  height: 46px;
+  content: '';
+}
+
 .app-header > div:first-child {
+  display: grid;
   min-width: 0;
+  justify-items: center;
+  text-align: center;
 }
 
 .app-logo-frame {
-  width: min(150px, 100%);
-  height: 42px;
+  width: min(180px, 100%);
+  height: 50px;
   overflow: hidden;
 }
 
@@ -523,9 +531,9 @@ button:focus-visible {
   display: block;
   width: auto;
   max-width: none;
-  height: 150px;
+  height: 180px;
   mix-blend-mode: multiply;
-  transform: translateY(-54px);
+  transform: translateY(-65px);
 }
 
 .brand-tagline {
@@ -3679,13 +3687,13 @@ button:focus-visible {
   }
 
   .app-logo-frame {
-    width: 178px;
-    height: 50px;
+    width: 205px;
+    height: 58px;
   }
 
   .app-logo {
-    height: 178px;
-    transform: translateY(-64px);
+    height: 205px;
+    transform: translateY(-74px);
   }
 
   .add-expense-header {
