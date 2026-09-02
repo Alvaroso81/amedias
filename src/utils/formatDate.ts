@@ -10,6 +10,13 @@ const longDateFormatter = new Intl.DateTimeFormat('es-ES', {
   timeZone: 'Europe/Madrid',
 })
 
+const shortDateFormatter = new Intl.DateTimeFormat('es-ES', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'Europe/Madrid',
+})
+
 function parseLocalDate(date: string) {
   return new Date(`${date}T12:00:00`)
 }
@@ -24,6 +31,10 @@ function toLocalIsoDate(date: Date) {
 
 export function formatLongDate(date: string) {
   return longDateFormatter.format(parseLocalDate(date))
+}
+
+export function formatShortDate(date: string) {
+  return shortDateFormatter.format(parseLocalDate(date)).replace('.', '')
 }
 
 export function formatExpenseGroupDate(date: string) {
@@ -68,4 +79,21 @@ export function formatMonthYear(date: Date) {
 
 export function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+export function getTodayIsoDate() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Europe/Madrid',
+  }).formatToParts(new Date())
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((datePart) => datePart.type === type)?.value ?? ''
+
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+export function getFirstDayOfMonth(date: string) {
+  return `${date.slice(0, 7)}-01`
 }

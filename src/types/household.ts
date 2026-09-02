@@ -4,6 +4,7 @@ export type Household = {
   id: string
   name: string
   currency: string
+  commonExpensesStartDate: string | null
 }
 
 export type HouseholdMembership = {

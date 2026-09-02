@@ -86,7 +86,15 @@ type AuthenticatedAppProps = {
 }
 
 function AuthenticatedApp({ user, pendingInviteToken, onClearInvite }: AuthenticatedAppProps) {
-  const { profile, household, membership, loading, error, reload } = useHousehold(user)
+  const {
+    profile,
+    household,
+    membership,
+    loading,
+    error,
+    reload,
+    updateCommonExpensesStartDate,
+  } = useHousehold(user)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
 
@@ -146,10 +154,14 @@ function AuthenticatedApp({ user, pendingInviteToken, onClearInvite }: Authentic
         email={user.email ?? ''}
         householdId={household.id}
         householdName={household.name}
+        commonExpensesStartDate={household.commonExpensesStartDate}
         currentUserId={user.id}
         role={membership.role}
         isSigningOut={isSigningOut}
         signOutError={signOutError}
+        onCommonExpensesStartDateChange={(startDate) =>
+          updateCommonExpensesStartDate(household.id, startDate)
+        }
         onSignOut={() => void handleSignOut()}
       />
     )
@@ -171,10 +183,12 @@ type ExpenseAppProps = {
   email: string
   householdId: string
   householdName: string
+  commonExpensesStartDate: string | null
   currentUserId: string
   role: HouseholdRole
   isSigningOut: boolean
   signOutError: string | null
+  onCommonExpensesStartDateChange: (startDate: string) => Promise<void>
   onSignOut: () => void
 }
 
@@ -187,10 +201,12 @@ function ExpenseApp({
   email,
   householdId,
   householdName,
+  commonExpensesStartDate,
   currentUserId,
   role,
   isSigningOut,
   signOutError,
+  onCommonExpensesStartDateChange,
   onSignOut,
 }: ExpenseAppProps) {
   const {
@@ -346,6 +362,7 @@ function ExpenseApp({
       <HomePage
         displayName={displayName}
         householdName={householdName}
+        commonExpensesStartDate={commonExpensesStartDate}
         currentUserId={currentUserId}
         expenses={expenses}
         members={members}
@@ -363,6 +380,7 @@ function ExpenseApp({
         onViewAllExpenses={goToExpenses}
         onViewStatistics={goToStatistics}
         onViewPersonalStatistics={goToPersonalStatistics}
+        onCommonExpensesStartDateChange={onCommonExpensesStartDateChange}
         onSettleAccounts={(direction) => {
           setSettlementNotice(null)
           setSettlementDialog({ mode: 'create', direction })

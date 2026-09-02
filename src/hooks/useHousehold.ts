@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { updateCommonExpensesStartDate as persistCommonExpensesStartDate } from '../services/householdSettings'
 import { supabase } from '../services/supabase'
 import type { UserProfile } from '../types/auth'
 import type { Household, HouseholdMembership, HouseholdRole } from '../types/household'
@@ -87,7 +88,7 @@ export function useHousehold(user: User) {
       const membershipRow = membershipResult.data
       const householdResult = await supabase
         .from('households')
-        .select('id, name, currency')
+        .select('id, name, currency, common_expenses_start_date')
         .eq('id', membershipRow.household_id)
         .single()
 
@@ -112,6 +113,7 @@ export function useHousehold(user: User) {
           id: householdResult.data.id,
           name: householdResult.data.name,
           currency: householdResult.data.currency,
+          commonExpensesStartDate: householdResult.data.common_expenses_start_date,
         },
         membership: {
           householdId: membershipRow.household_id,
@@ -142,5 +144,24 @@ export function useHousehold(user: User) {
     }
   }, [reload])
 
-  return { ...state, reload }
+  const updateCommonExpensesStartDate = useCallback(
+    async (householdId: string, startDate: string) => {
+      const savedStartDate = await persistCommonExpensesStartDate(householdId, startDate)
+
+      setState((currentState) => {
+        if (currentState.household?.id !== householdId) return currentState
+
+        return {
+          ...currentState,
+          household: {
+            ...currentState.household,
+            commonExpensesStartDate: savedStartDate,
+          },
+        }
+      })
+    },
+    [],
+  )
+
+  return { ...state, reload, updateCommonExpensesStartDate }
 }

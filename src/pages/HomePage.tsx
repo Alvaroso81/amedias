@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { BalanceCard } from '../components/BalanceCard'
 import { CommonFundCard } from '../components/CommonFundCard'
@@ -15,11 +15,18 @@ import type {
   SettlementRecord,
 } from '../types/expenseRead'
 import type { SettlementDirection } from '../types/settlement'
-import { formatMonthYear, getMonthKey } from '../utils/formatDate'
+import { getCommonExpensesInPeriod } from '../utils/commonExpenseSummary'
+import {
+  formatMonthYear,
+  getFirstDayOfMonth,
+  getMonthKey,
+  getTodayIsoDate,
+} from '../utils/formatDate'
 
 type HomePageProps = {
   displayName: string
   householdName: string
+  commonExpensesStartDate: string | null
   expenses: ExpenseRecord[]
   currentUserId: string
   members: ExpenseReadMember[]
@@ -37,6 +44,7 @@ type HomePageProps = {
   onViewAllExpenses: () => void
   onViewStatistics: () => void
   onViewPersonalStatistics: () => void
+  onCommonExpensesStartDateChange: (startDate: string) => Promise<void>
   onSettleAccounts: (direction: SettlementDirection) => void
   onSignOut: () => void
   statusMessage: string | null
@@ -49,6 +57,7 @@ function roundMoney(amount: number) {
 export function HomePage({
   displayName,
   householdName,
+  commonExpensesStartDate,
   expenses,
   currentUserId,
   members,
@@ -66,13 +75,22 @@ export function HomePage({
   onViewAllExpenses,
   onViewStatistics,
   onViewPersonalStatistics,
+  onCommonExpensesStartDateChange,
   onSettleAccounts,
   onSignOut,
   statusMessage,
 }: HomePageProps) {
   const currentDate = new Date()
+  const today = useMemo(() => getTodayIsoDate(), [])
+  const persistedSummaryStartDate = commonExpensesStartDate ?? getFirstDayOfMonth(today)
   const currentMonthKey = getMonthKey(currentDate)
   const currentPeriod = formatMonthYear(currentDate)
+  const [optimisticSummaryStartDate, setOptimisticSummaryStartDate] = useState<string | null>(
+    null,
+  )
+  const summaryStartDate = optimisticSummaryStartDate ?? persistedSummaryStartDate
+  const [isSavingSummaryStartDate, setIsSavingSummaryStartDate] = useState(false)
+  const [summaryStartDateError, setSummaryStartDateError] = useState<string | null>(null)
   const commonExpenses = useMemo(
     () => expenses.filter((expense) => expense.expenseType === 'common'),
     [expenses],
@@ -82,7 +100,11 @@ export function HomePage({
     () => commonExpenses.filter((expense) => expense.expenseDate.startsWith(currentMonthKey)),
     [commonExpenses, currentMonthKey],
   )
-  const total = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const summaryExpenses = useMemo(
+    () => getCommonExpensesInPeriod(expenses, summaryStartDate, today),
+    [expenses, summaryStartDate, today],
+  )
+  const total = summaryExpenses.reduce((sum, expense) => sum + expense.amount, 0)
   const monthlyPersonalExpenses = useMemo(
     () =>
       expenses.filter(
@@ -101,7 +123,7 @@ export function HomePage({
     const paidByMember = new Map(members.map((member) => [member.userId, 0]))
     let paidByFund = 0
 
-    monthlyExpenses.forEach((expense) => {
+    summaryExpenses.forEach((expense) => {
       if (expense.paymentSource === 'common_fund') {
         paidByFund += expense.amount
         return
@@ -137,7 +159,24 @@ export function HomePage({
     }
 
     return result
-  }, [members, monthlyExpenses])
+  }, [members, summaryExpenses])
+
+  const handleSummaryStartDateChange = async (startDate: string) => {
+    if (!startDate || startDate === summaryStartDate || startDate > today) return
+
+    setOptimisticSummaryStartDate(startDate)
+    setIsSavingSummaryStartDate(true)
+    setSummaryStartDateError(null)
+
+    try {
+      await onCommonExpensesStartDateChange(startDate)
+    } catch {
+      setSummaryStartDateError('No hemos podido guardar la fecha. Inténtalo de nuevo.')
+    } finally {
+      setOptimisticSummaryStartDate(null)
+      setIsSavingSummaryStartDate(false)
+    }
+  }
 
   const balance = useMemo(() => {
     const balances = new Map(members.map((member) => [member.userId, 0]))
@@ -260,7 +299,15 @@ export function HomePage({
           <div
             className={`summary-grid${monthlyPersonalExpenses.length ? ' summary-grid--with-personal' : ''}`}
           >
-            <ExpenseSummary total={total} contributions={contributions} />
+            <ExpenseSummary
+              total={total}
+              contributions={contributions}
+              startDate={summaryStartDate}
+              maxDate={today}
+              isSavingStartDate={isSavingSummaryStartDate}
+              startDateError={summaryStartDateError}
+              onStartDateChange={handleSummaryStartDateChange}
+            />
             {monthlyPersonalExpenses.length > 0 && (
               <PersonalExpenseSummary
                 total={personalTotal}

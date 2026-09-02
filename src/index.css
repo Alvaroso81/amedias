@@ -632,9 +632,62 @@ button:focus-visible {
   padding: 24px;
 }
 
-.summary-card > .card-label,
+.summary-period-heading,
 .summary-total {
   text-align: center;
+}
+
+.summary-period-heading {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+
+.summary-date-control {
+  position: relative;
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 9px;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  font-size: 0.78rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.summary-date-control:hover {
+  background: #deebe4;
+}
+
+.summary-date-control:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.summary-date-control svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.summary-date-control input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.summary-date-control input:disabled {
+  cursor: wait;
 }
 
 .card-label {
@@ -646,12 +699,20 @@ button:focus-visible {
 }
 
 .summary-total {
-  margin: 8px 0 27px;
+  margin: 12px 0 27px;
   color: #1e2e28;
   font-size: clamp(2.25rem, 11vw, 3.25rem);
   font-weight: 760;
   line-height: 1;
   letter-spacing: -0.055em;
+}
+
+.summary-date-error {
+  margin: -14px 0 18px;
+  color: #874b46;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .contribution-list {
