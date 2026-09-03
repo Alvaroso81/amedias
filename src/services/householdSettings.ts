@@ -19,3 +19,21 @@ export async function updateCommonExpensesStartDate(
 
   return data
 }
+
+export async function updateAccountingMonthStartDay(
+  householdId: string,
+  startDay: number,
+) {
+  const { data, error } = await supabase.rpc('update_accounting_month_start_day', {
+    p_household_id: householdId,
+    p_start_day: startDay,
+  })
+
+  if (error || typeof data !== 'number') {
+    throw new HouseholdSettingsServiceError(
+      'No hemos podido guardar el inicio del mes contable. Inténtalo de nuevo.',
+    )
+  }
+
+  return data
+}

@@ -15,6 +15,7 @@ export type ExpenseEditDraft = {
   paidByUserId: string
   splits: Record<string, string>
   expenseDate: string
+  accountingMonth: string
   expenseType: ExpenseType
   note: string
 }
@@ -181,6 +182,7 @@ export function createExpenseEditDraft(
     paidByUserId: expense.payments[0]?.userId ?? members[0]?.userId ?? '',
     splits,
     expenseDate: expense.expenseDate,
+    accountingMonth: expense.accountingMonth,
     expenseType: expense.expenseType,
     note: expense.note,
   }
@@ -202,6 +204,7 @@ export function buildExpenseUpdateInput(
     amount,
     categoryId: draft.categoryId,
     expenseDate: draft.expenseDate,
+    accountingMonth: draft.accountingMonth,
     expenseType,
     note: draft.note.trim(),
     paymentSource: draft.paymentSource,

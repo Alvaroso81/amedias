@@ -24,6 +24,7 @@ const knownCreateExpenseErrors = [
   'El importe supera el máximo permitido',
   'El tipo de gasto debe ser common o personal',
   'La fecha del gasto es obligatoria',
+  'El mes contable debe ser el primer día de un mes entre 1900 y 2200',
   'La categoría no pertenece al hogar o está archivada',
   'El pagador no pertenece al hogar',
   'El importe pagado debe ser mayor que 0',
@@ -61,6 +62,7 @@ const knownMutationErrors = [
   'El importe supera el máximo permitido',
   'El importe no puede tener más de dos decimales',
   'La fecha es obligatoria',
+  'El mes contable debe ser el primer día de un mes entre 1900 y 2200',
   'El tipo de gasto no es válido',
   'La categoría no pertenece al hogar o no está activa',
   'Los pagos deben enviarse como una lista',
@@ -110,7 +112,7 @@ export async function loadHouseholdExpenses(
       supabase
         .from('expenses')
         .select(
-          'id, household_id, description, amount, expense_date, expense_type, personal_owner_id, personal_origin_owner_id, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
+          'id, household_id, description, amount, expense_date, accounting_month, expense_type, personal_owner_id, personal_origin_owner_id, payment_source, note, category_id, created_by, updated_by, created_at, updated_at',
         )
         .eq('household_id', householdId)
         .is('deleted_at', null)
@@ -232,6 +234,7 @@ export async function loadHouseholdExpenses(
       description: expense.description,
       amount: Number(expense.amount),
       expenseDate: expense.expense_date,
+      accountingMonth: expense.accounting_month,
       expenseType: expense.expense_type === 'personal' ? 'personal' : 'common',
       personalOwnerId: expense.personal_owner_id,
       personalOriginOwnerId: expense.personal_origin_owner_id,
@@ -342,12 +345,13 @@ export async function loadExpenseFormData(householdId: string) {
 }
 
 export async function createExpense(input: CreateExpenseInput) {
-  const { data, error } = await supabase.rpc('create_expense_v2', {
+  const { data, error } = await supabase.rpc('create_expense_v3', {
     p_household_id: input.householdId,
     p_description: input.description,
     p_amount: input.amount,
     p_category_id: input.categoryId,
     p_expense_date: input.expenseDate,
+    p_accounting_month: input.accountingMonth,
     p_expense_type: input.expenseType,
     p_note: input.note || null,
     p_payment_source: input.paymentSource,
@@ -376,12 +380,13 @@ export async function createExpense(input: CreateExpenseInput) {
 }
 
 export async function updateExpense(input: UpdateExpenseInput) {
-  const { data, error } = await supabase.rpc('update_expense_v2', {
+  const { data, error } = await supabase.rpc('update_expense_v3', {
     p_expense_id: input.expenseId,
     p_description: input.description,
     p_amount: input.amount,
     p_category_id: input.categoryId,
     p_expense_date: input.expenseDate,
+    p_accounting_month: input.accountingMonth,
     p_expense_type: input.expenseType,
     p_note: input.note || null,
     p_payment_source: input.paymentSource,

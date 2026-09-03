@@ -16,6 +16,7 @@ import type {
 } from '../types/expenseRead'
 import type { SettlementDirection } from '../types/settlement'
 import { getCommonExpensesInPeriod } from '../utils/commonExpenseSummary'
+import { calculateAccountingMonth } from '../utils/accountingMonth'
 import {
   formatMonthYear,
   getFirstDayOfMonth,
@@ -27,6 +28,7 @@ type HomePageProps = {
   displayName: string
   householdName: string
   commonExpensesStartDate: string | null
+  accountingMonthStartDay: number
   expenses: ExpenseRecord[]
   currentUserId: string
   members: ExpenseReadMember[]
@@ -58,6 +60,7 @@ export function HomePage({
   displayName,
   householdName,
   commonExpensesStartDate,
+  accountingMonthStartDay,
   expenses,
   currentUserId,
   members,
@@ -80,15 +83,20 @@ export function HomePage({
   onSignOut,
   statusMessage,
 }: HomePageProps) {
-  const currentDate = new Date()
   const today = useMemo(() => getTodayIsoDate(), [])
   const persistedSummaryStartDate = commonExpensesStartDate ?? getFirstDayOfMonth(today)
-  const currentMonthKey = getMonthKey(currentDate)
-  const currentPeriod = formatMonthYear(currentDate)
+  const currentAccountingMonth = calculateAccountingMonth(today, accountingMonthStartDay)
+  const currentAccountingDate = new Date(`${currentAccountingMonth}T12:00:00`)
+  const currentMonthKey = getMonthKey(currentAccountingDate)
+  const currentPeriod = formatMonthYear(currentAccountingDate)
   const [optimisticSummaryStartDate, setOptimisticSummaryStartDate] = useState<string | null>(
     null,
   )
   const summaryStartDate = optimisticSummaryStartDate ?? persistedSummaryStartDate
+  const summaryStartAccountingMonth = calculateAccountingMonth(
+    summaryStartDate,
+    accountingMonthStartDay,
+  )
   const [isSavingSummaryStartDate, setIsSavingSummaryStartDate] = useState(false)
   const [summaryStartDateError, setSummaryStartDateError] = useState<string | null>(null)
   const commonExpenses = useMemo(
@@ -97,12 +105,16 @@ export function HomePage({
   )
 
   const monthlyExpenses = useMemo(
-    () => commonExpenses.filter((expense) => expense.expenseDate.startsWith(currentMonthKey)),
+    () => commonExpenses.filter((expense) => expense.accountingMonth.startsWith(currentMonthKey)),
     [commonExpenses, currentMonthKey],
   )
   const summaryExpenses = useMemo(
-    () => getCommonExpensesInPeriod(expenses, summaryStartDate, today),
-    [expenses, summaryStartDate, today],
+    () => getCommonExpensesInPeriod(
+      expenses,
+      summaryStartAccountingMonth,
+      currentAccountingMonth,
+    ),
+    [currentAccountingMonth, expenses, summaryStartAccountingMonth],
   )
   const total = summaryExpenses.reduce((sum, expense) => sum + expense.amount, 0)
   const monthlyPersonalExpenses = useMemo(
@@ -111,7 +123,7 @@ export function HomePage({
         (expense) =>
           expense.expenseType === 'personal' &&
           expense.personalOwnerId === currentUserId &&
-          expense.expenseDate.startsWith(currentMonthKey),
+          expense.accountingMonth.startsWith(currentMonthKey),
       ),
     [currentMonthKey, currentUserId, expenses],
   )

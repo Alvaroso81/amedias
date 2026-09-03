@@ -124,7 +124,7 @@ function dateIsInRange(date: string, range: PeriodRange) {
 }
 
 export function filterExpensesByRange(expenses: ExpenseRecord[], range: PeriodRange) {
-  return expenses.filter((expense) => dateIsInRange(expense.expenseDate, range))
+  return expenses.filter((expense) => dateIsInRange(expense.accountingMonth, range))
 }
 
 export function filterSettlementsByRange(
@@ -304,7 +304,7 @@ function getMonthlyTotalMap(expenses: ExpenseRecord[]) {
   const totals = new Map<string, number>()
 
   expenses.forEach((expense) => {
-    const key = expense.expenseDate.slice(0, 7)
+    const key = expense.accountingMonth.slice(0, 7)
     totals.set(key, (totals.get(key) ?? 0) + toCents(expense.amount))
   })
 
@@ -362,7 +362,7 @@ export function getMonthlyAverage(
 ) {
   if (!expenses.length) return 0
 
-  const activityMonths = expenses.map((expense) => expense.expenseDate.slice(0, 7)).sort()
+  const activityMonths = expenses.map((expense) => expense.accountingMonth.slice(0, 7)).sort()
   const firstActivity = monthFromKey(activityMonths[0])
   const lastActivity = monthFromKey(activityMonths.at(-1) ?? activityMonths[0])
   const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1)

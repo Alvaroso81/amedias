@@ -2,6 +2,10 @@ import type { ExpenseRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
 import { formatExpenseGroupDate } from '../utils/formatDate'
 import { getExpensePayerText } from '../utils/expensePresentation'
+import {
+  accountingMonthDiffersFromExpenseDate,
+  formatAccountingMonth,
+} from '../utils/accountingMonth'
 
 type ExpenseHistoryListProps = {
   expenses: ExpenseRecord[]
@@ -59,6 +63,14 @@ export function ExpenseHistoryList({
                     {expense.paymentSource === 'common_fund' && <span className="fund-history-mark" aria-hidden="true">◎</span>}
                     {getExpensePayerText(expense)}
                   </small>
+                  {accountingMonthDiffersFromExpenseDate(
+                    expense.accountingMonth,
+                    expense.expenseDate,
+                  ) && (
+                    <small className="accounting-month-mark">
+                      Cuenta en {formatAccountingMonth(expense.accountingMonth).toLocaleLowerCase('es-ES')}
+                    </small>
+                  )}
                 </span>
                 <strong className="history-expense-amount">{formatCurrency(expense.amount)}</strong>
                 <span className="history-expense-chevron" aria-hidden="true">

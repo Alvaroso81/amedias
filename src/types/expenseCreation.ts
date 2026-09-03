@@ -30,6 +30,7 @@ export type CreateExpenseInput = {
   amount: number
   categoryId: string
   expenseDate: string
+  accountingMonth: string
   expenseType: ExpenseType
   note: string
   paymentSource: PaymentSource
@@ -44,6 +45,7 @@ export type UpdateExpenseInput = {
   amount: number
   categoryId: string
   expenseDate: string
+  accountingMonth: string
   expenseType: ExpenseType
   note: string
   paymentSource: PaymentSource

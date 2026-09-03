@@ -93,6 +93,7 @@ function AuthenticatedApp({ user, pendingInviteToken, onClearInvite }: Authentic
     loading,
     error,
     reload,
+    updateAccountingMonthStartDay,
     updateCommonExpensesStartDate,
   } = useHousehold(user)
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -155,12 +156,16 @@ function AuthenticatedApp({ user, pendingInviteToken, onClearInvite }: Authentic
         householdId={household.id}
         householdName={household.name}
         commonExpensesStartDate={household.commonExpensesStartDate}
+        accountingMonthStartDay={household.accountingMonthStartDay}
         currentUserId={user.id}
         role={membership.role}
         isSigningOut={isSigningOut}
         signOutError={signOutError}
         onCommonExpensesStartDateChange={(startDate) =>
           updateCommonExpensesStartDate(household.id, startDate)
+        }
+        onAccountingMonthStartDayChange={(startDay) =>
+          updateAccountingMonthStartDay(household.id, startDay)
         }
         onSignOut={() => void handleSignOut()}
       />
@@ -184,11 +189,13 @@ type ExpenseAppProps = {
   householdId: string
   householdName: string
   commonExpensesStartDate: string | null
+  accountingMonthStartDay: number
   currentUserId: string
   role: HouseholdRole
   isSigningOut: boolean
   signOutError: string | null
   onCommonExpensesStartDateChange: (startDate: string) => Promise<void>
+  onAccountingMonthStartDayChange: (startDay: number) => Promise<void>
   onSignOut: () => void
 }
 
@@ -202,11 +209,13 @@ function ExpenseApp({
   householdId,
   householdName,
   commonExpensesStartDate,
+  accountingMonthStartDay,
   currentUserId,
   role,
   isSigningOut,
   signOutError,
   onCommonExpensesStartDateChange,
+  onAccountingMonthStartDayChange,
   onSignOut,
 }: ExpenseAppProps) {
   const {
@@ -363,6 +372,7 @@ function ExpenseApp({
         displayName={displayName}
         householdName={householdName}
         commonExpensesStartDate={commonExpensesStartDate}
+        accountingMonthStartDay={accountingMonthStartDay}
         currentUserId={currentUserId}
         expenses={expenses}
         members={members}
@@ -395,6 +405,7 @@ function ExpenseApp({
         key={expensesPageKey}
         expenses={expenses}
         currentUserId={currentUserId}
+        accountingMonthStartDay={accountingMonthStartDay}
         members={members}
         loading={loading}
         error={error}
@@ -408,6 +419,7 @@ function ExpenseApp({
       <AddExpensePage
         householdId={householdId}
         currentUserId={currentUserId}
+        accountingMonthStartDay={accountingMonthStartDay}
         commonFundBalance={commonFund.balance}
         commonFundEnabled={Boolean(commonFund.settings?.enabled)}
         commonFundLoading={commonFund.loading}
@@ -432,11 +444,13 @@ function ExpenseApp({
       <SettingsPage
         householdId={householdId}
         householdName={householdName}
+        accountingMonthStartDay={accountingMonthStartDay}
         displayName={displayName}
         email={email}
         role={role}
         isSigningOut={isSigningOut}
         signOutError={signOutError}
+        onAccountingMonthStartDayChange={onAccountingMonthStartDayChange}
         onSignOut={onSignOut}
         onViewSettlements={goToSettlements}
       />
@@ -458,6 +472,7 @@ function ExpenseApp({
           commonExpenses={commonExpenses}
           personalExpenses={myPersonalExpenses}
           currentUserId={currentUserId}
+          accountingMonthStartDay={accountingMonthStartDay}
           members={members}
           settlements={settlements}
           loading={loading}
@@ -504,6 +519,7 @@ function ExpenseApp({
         householdId={householdId}
         expense={selectedExpense}
         currentUserId={currentUserId}
+        accountingMonthStartDay={accountingMonthStartDay}
         commonFundBalance={commonFund.balance}
         commonFundEnabled={Boolean(commonFund.settings?.enabled)}
         commonFundLoading={commonFund.loading}
@@ -530,6 +546,7 @@ function ExpenseApp({
       <ExpensesPage
         key={expensesPageKey}
         currentUserId={currentUserId}
+        accountingMonthStartDay={accountingMonthStartDay}
         expenses={expenses}
         members={members}
         loading={loading}

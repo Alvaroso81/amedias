@@ -1409,6 +1409,11 @@ button:focus-visible {
   font-size: 0.69rem;
 }
 
+.history-expense-copy .accounting-month-mark {
+  color: var(--primary);
+  font-weight: 680;
+}
+
 .history-expense-amount {
   align-self: start;
   margin-top: 3px;
@@ -1976,6 +1981,52 @@ button:focus-visible {
   content: '⌄';
   pointer-events: none;
   transform: translateY(-58%);
+}
+
+.accounting-month-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.accounting-month-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.4fr) minmax(92px, 0.8fr);
+  gap: 8px;
+}
+
+.accounting-month-controls select {
+  min-width: 0;
+}
+
+.accounting-month-value,
+.accounting-month-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.accounting-month-value {
+  font-weight: 680;
+}
+
+.accounting-month-auto {
+  justify-self: start;
+  padding: 4px 0;
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.accounting-month-auto:hover:not(:disabled) {
+  color: var(--primary-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .form-divider {
@@ -2872,6 +2923,69 @@ button:focus-visible {
   height: 1px;
   margin: 20px 0;
   background: var(--border);
+}
+
+.accounting-month-setting {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.accounting-month-setting > div {
+  min-width: 0;
+}
+
+.accounting-month-setting label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.accounting-month-setting p,
+.accounting-month-setting-example,
+.settings-saving-note {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.accounting-month-setting select {
+  min-width: 92px;
+  min-height: 43px;
+  flex: 0 0 auto;
+  padding: 0 30px 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  color: var(--primary-dark);
+  background: var(--surface-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.accounting-month-setting > strong {
+  flex: 0 0 auto;
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+}
+
+.settings-saving-note {
+  color: var(--primary);
+  font-weight: 680;
+}
+
+@media (max-width: 420px) {
+  .accounting-month-setting {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .accounting-month-setting select {
+    width: 100%;
+  }
 }
 
 .settings-section-heading--members {

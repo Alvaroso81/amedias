@@ -8,6 +8,7 @@ import {
   HouseholdInviteServiceError,
   revokeHouseholdInvite,
 } from '../services/householdInvites'
+import { HouseholdSettingsServiceError } from '../services/householdSettings'
 import type { HouseholdRole } from '../types/household'
 import type { HouseholdInvite, HouseholdMemberSummary } from '../types/householdInvites'
 import { createInviteLink } from '../utils/pendingInvite'
@@ -15,6 +16,7 @@ import { createInviteLink } from '../utils/pendingInvite'
 type SettingsPageProps = {
   householdId: string
   householdName: string
+  accountingMonthStartDay: number
   displayName: string
   email: string
   role: HouseholdRole
@@ -22,6 +24,7 @@ type SettingsPageProps = {
   signOutError: string | null
   onSignOut: () => void
   onViewSettlements: () => void
+  onAccountingMonthStartDayChange: (startDay: number) => Promise<void>
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -44,6 +47,7 @@ function formatShortDate(value: string) {
 export function SettingsPage({
   householdId,
   householdName,
+  accountingMonthStartDay,
   displayName,
   email,
   role,
@@ -51,6 +55,7 @@ export function SettingsPage({
   signOutError,
   onSignOut,
   onViewSettlements,
+  onAccountingMonthStartDayChange,
 }: SettingsPageProps) {
   const requestId = useRef(0)
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([])
@@ -67,6 +72,8 @@ export function SettingsPage({
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
   const [passwordNotice, setPasswordNotice] = useState<string | null>(null)
+  const [isSavingAccountingMonth, setIsSavingAccountingMonth] = useState(false)
+  const [accountingMonthError, setAccountingMonthError] = useState<string | null>(null)
 
   const loadSettings = useCallback(async () => {
     const currentRequest = ++requestId.current
@@ -169,6 +176,25 @@ export function SettingsPage({
     }
   }
 
+  const handleAccountingMonthStartDayChange = async (startDay: number) => {
+    if (role !== 'owner' || startDay === accountingMonthStartDay) return
+
+    setIsSavingAccountingMonth(true)
+    setAccountingMonthError(null)
+
+    try {
+      await onAccountingMonthStartDayChange(startDay)
+    } catch (error) {
+      setAccountingMonthError(
+        error instanceof HouseholdSettingsServiceError
+          ? error.message
+          : 'No hemos podido guardar el inicio del mes contable.',
+      )
+    } finally {
+      setIsSavingAccountingMonth(false)
+    }
+  }
+
   return (
     <div className="settings-page">
       <header className="settings-page-header">
@@ -186,6 +212,42 @@ export function SettingsPage({
             {role === 'owner' ? 'Propietario' : 'Miembro'}
           </span>
         </div>
+
+        <div className="settings-divider" />
+
+        <div className="accounting-month-setting">
+          <div>
+            <label htmlFor="accounting-month-start-day">Inicio del mes contable</label>
+            <p>
+              Los gastos realizados desde este día se asignarán por defecto al mes siguiente.
+            </p>
+          </div>
+          {role === 'owner' ? (
+            <select
+              id="accounting-month-start-day"
+              value={accountingMonthStartDay}
+              disabled={isSavingAccountingMonth}
+              onChange={(event) =>
+                void handleAccountingMonthStartDayChange(Number(event.target.value))
+              }
+            >
+              {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => (
+                <option value={day} key={day}>Día {day}</option>
+              ))}
+            </select>
+          ) : (
+            <strong>Día {accountingMonthStartDay}</strong>
+          )}
+        </div>
+        <p className="accounting-month-setting-example">
+          {accountingMonthStartDay === 1
+            ? 'Los gastos se asignan a su mes natural.'
+            : `Un gasto del ${accountingMonthStartDay} de agosto se asignará por defecto a septiembre.`}
+        </p>
+        {isSavingAccountingMonth && <p className="settings-saving-note">Guardando…</p>}
+        {accountingMonthError && (
+          <p className="auth-submit-error" role="alert">{accountingMonthError}</p>
+        )}
 
         <div className="settings-divider" />
 

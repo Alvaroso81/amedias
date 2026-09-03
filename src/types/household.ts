@@ -5,6 +5,7 @@ export type Household = {
   name: string
   currency: string
   commonExpensesStartDate: string | null
+  accountingMonthStartDay: number
 }
 
 export type HouseholdMembership = {

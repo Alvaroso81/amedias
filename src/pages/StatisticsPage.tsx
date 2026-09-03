@@ -6,8 +6,9 @@ import type {
   SettlementRecord,
 } from '../types/expenseRead'
 import type { StatisticsExpenseFilter } from '../types/expenseFilters'
+import { calculateAccountingMonth } from '../utils/accountingMonth'
 import { formatCurrency } from '../utils/formatCurrency'
-import { formatMonthYear } from '../utils/formatDate'
+import { formatMonthYear, getTodayIsoDate } from '../utils/formatDate'
 import {
   filterExpensesByRange,
   filterSettlementsByRange,
@@ -37,6 +38,7 @@ type StatisticsPageProps = {
   commonExpenses: ExpenseRecord[]
   personalExpenses: ExpenseRecord[]
   currentUserId: string
+  accountingMonthStartDay: number
   members: ExpenseReadMember[]
   settlements: SettlementRecord[]
   loading: boolean
@@ -66,9 +68,12 @@ const percentageFormatter = new Intl.NumberFormat('es-ES', {
 
 const previousMonthFormatter = new Intl.DateTimeFormat('es-ES', { month: 'long' })
 
-function getInitialMonth() {
-  const today = new Date()
-  return new Date(today.getFullYear(), today.getMonth(), 1)
+function getInitialMonth(accountingMonthStartDay: number) {
+  const accountingMonth = calculateAccountingMonth(
+    getTodayIsoDate(),
+    accountingMonthStartDay,
+  )
+  return new Date(`${accountingMonth}T12:00:00`)
 }
 
 function formatSignedCurrency(amount: number) {
@@ -92,6 +97,7 @@ export function StatisticsPage({
   commonExpenses,
   personalExpenses,
   currentUserId,
+  accountingMonthStartDay,
   members,
   settlements,
   loading,
@@ -101,9 +107,15 @@ export function StatisticsPage({
   onSelectCategory,
 }: StatisticsPageProps) {
   const [periodMode, setPeriodMode] = useState<StatisticsPeriodMode>('month')
-  const [anchorDate, setAnchorDate] = useState(getInitialMonth)
+  const [anchorDate, setAnchorDate] = useState(() =>
+    getInitialMonth(accountingMonthStartDay),
+  )
   const [activeTab, setActiveTab] = useState<StatisticsTab>('summary')
   const [scope, setScope] = useState<StatisticsScope>(initialScope)
+  const currentAccountingDate = useMemo(
+    () => getInitialMonth(accountingMonthStartDay),
+    [accountingMonthStartDay],
+  )
 
   const scopedExpenses = useMemo(
     () =>
@@ -146,7 +158,12 @@ export function StatisticsPage({
       paidBy: getPaymentSourceStatistics(currentExpenses, members),
       assumedBy: getMemberStatistics(currentExpenses, members, 'splits'),
       evolution: getMonthlyEvolution(scopedExpenses, periodMode, anchorDate),
-      monthlyAverage: getMonthlyAverage(scopedExpenses, periodMode, anchorDate),
+      monthlyAverage: getMonthlyAverage(
+        scopedExpenses,
+        periodMode,
+        anchorDate,
+        currentAccountingDate,
+      ),
       topDescriptions: getTopDescriptions(currentExpenses),
       currentBalance:
         scope === 'common'
@@ -154,7 +171,7 @@ export function StatisticsPage({
           : { debtor: null, creditor: null, amount: 0 },
       settledTotal: sumSettlements(periodSettlements),
     }
-  }, [anchorDate, members, periodMode, scope, scopedExpenses, settlements])
+  }, [anchorDate, currentAccountingDate, members, periodMode, scope, scopedExpenses, settlements])
 
   const periodLabel = getPeriodLabel(periodMode, anchorDate)
   const previousPeriodLabel = getPreviousPeriodLabel(periodMode, anchorDate)

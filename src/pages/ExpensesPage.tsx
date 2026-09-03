@@ -8,12 +8,14 @@ import {
   type StatisticsExpenseFilter,
 } from '../types/expenseFilters'
 import type { ExpenseReadMember, ExpenseRecord } from '../types/expenseRead'
+import { calculateAccountingMonth } from '../utils/accountingMonth'
 import { formatCurrency } from '../utils/formatCurrency'
-import { formatMonthYear, getMonthKey } from '../utils/formatDate'
+import { formatMonthYear, getMonthKey, getTodayIsoDate } from '../utils/formatDate'
 
 type ExpensesPageProps = {
   expenses: ExpenseRecord[]
   currentUserId: string
+  accountingMonthStartDay: number
   members: ExpenseReadMember[]
   loading: boolean
   error: string | null
@@ -33,6 +35,7 @@ function normalizeSearchValue(value: string) {
 export function ExpensesPage({
   expenses,
   currentUserId,
+  accountingMonthStartDay,
   members,
   loading,
   error,
@@ -40,10 +43,16 @@ export function ExpensesPage({
   onSelectExpense,
   statisticsFilter,
 }: ExpensesPageProps) {
+  const currentAccountingDate = useMemo(() => {
+    const accountingMonth = calculateAccountingMonth(
+      getTodayIsoDate(),
+      accountingMonthStartDay,
+    )
+    return new Date(`${accountingMonth}T12:00:00`)
+  }, [accountingMonthStartDay])
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (statisticsFilter) return new Date(`${statisticsFilter.anchorDate}T12:00:00`)
-    const today = new Date()
-    return new Date(today.getFullYear(), today.getMonth(), 1)
+    return currentAccountingDate
   })
   const [periodMode, setPeriodMode] = useState<'month' | 'year' | 'history'>(
     statisticsFilter?.periodMode ?? 'month',
@@ -71,9 +80,9 @@ export function ExpensesPage({
       expenses.filter((expense) => {
         if (periodMode === 'history') return true
         if (periodMode === 'year') {
-          return expense.expenseDate.startsWith(String(selectedMonth.getFullYear()))
+          return expense.accountingMonth.startsWith(String(selectedMonth.getFullYear()))
         }
-        return expense.expenseDate.startsWith(selectedMonthKey)
+        return expense.accountingMonth.startsWith(selectedMonthKey)
       }),
     [expenses, periodMode, selectedMonth, selectedMonthKey],
   )
@@ -198,8 +207,7 @@ export function ExpensesPage({
               <button
                 type="button"
                 onClick={() => {
-                  const today = new Date()
-                  setSelectedMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+                  setSelectedMonth(currentAccountingDate)
                   setPeriodMode('month')
                   setShowStatisticsContext(false)
                   clearFilters()

@@ -1,6 +1,9 @@
 import type { User } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { updateCommonExpensesStartDate as persistCommonExpensesStartDate } from '../services/householdSettings'
+import {
+  updateAccountingMonthStartDay as persistAccountingMonthStartDay,
+  updateCommonExpensesStartDate as persistCommonExpensesStartDate,
+} from '../services/householdSettings'
 import { supabase } from '../services/supabase'
 import type { UserProfile } from '../types/auth'
 import type { Household, HouseholdMembership, HouseholdRole } from '../types/household'
@@ -92,7 +95,7 @@ export function useHousehold(user: User) {
       const membershipRow = membershipResult.data
       const householdResult = await supabase
         .from('households')
-        .select('id, name, currency, common_expenses_start_date')
+        .select('id, name, currency, common_expenses_start_date, accounting_month_start_day')
         .eq('id', membershipRow.household_id)
         .single()
 
@@ -118,6 +121,7 @@ export function useHousehold(user: User) {
           name: householdResult.data.name,
           currency: householdResult.data.currency,
           commonExpensesStartDate: householdResult.data.common_expenses_start_date,
+          accountingMonthStartDay: householdResult.data.accounting_month_start_day,
         },
         membership: {
           householdId: membershipRow.household_id,
@@ -167,5 +171,29 @@ export function useHousehold(user: User) {
     [],
   )
 
-  return { ...state, reload, updateCommonExpensesStartDate }
+  const updateAccountingMonthStartDay = useCallback(
+    async (householdId: string, startDay: number) => {
+      const savedStartDay = await persistAccountingMonthStartDay(householdId, startDay)
+
+      setState((currentState) => {
+        if (currentState.household?.id !== householdId) return currentState
+
+        return {
+          ...currentState,
+          household: {
+            ...currentState.household,
+            accountingMonthStartDay: savedStartDay,
+          },
+        }
+      })
+    },
+    [],
+  )
+
+  return {
+    ...state,
+    reload,
+    updateCommonExpensesStartDate,
+    updateAccountingMonthStartDay,
+  }
 }

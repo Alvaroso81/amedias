@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { AccountingMonthField } from '../components/AccountingMonthField'
 import { ExpenseSavedConfirmation } from '../components/ExpenseSavedConfirmation'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
 import { createExpense, ExpenseServiceError, updateExpense } from '../services/expenses'
@@ -11,6 +12,7 @@ import type {
 import type { PaymentSource } from '../types/commonFund'
 import type { ExpenseRecord } from '../types/expenseRead'
 import { calculateExpenseSplits } from '../utils/calculateExpenseSplits'
+import { calculateAccountingMonth } from '../utils/accountingMonth'
 import {
   deriveExpenseType,
   getCommonFundSplits,
@@ -24,6 +26,7 @@ import { formatCurrency } from '../utils/formatCurrency'
 type AddExpensePageProps = {
   householdId: string
   currentUserId: string
+  accountingMonthStartDay: number
   commonFundBalance: number
   commonFundEnabled: boolean
   commonFundLoading: boolean
@@ -35,7 +38,7 @@ type AddExpensePageProps = {
 }
 
 type FormErrors = Partial<
-  Record<'amount' | 'description' | 'category' | 'paidBy' | 'split' | 'date', string>
+  Record<'amount' | 'description' | 'category' | 'paidBy' | 'split' | 'date' | 'accountingMonth', string>
 >
 
 type SplitValues = Record<string, string>
@@ -73,6 +76,7 @@ function getInitialSplits(members: ExpenseMember[], initialExpense?: ExpenseReco
 export function AddExpensePage({
   householdId,
   currentUserId,
+  accountingMonthStartDay,
   commonFundBalance,
   commonFundEnabled,
   commonFundLoading,
@@ -120,6 +124,7 @@ export function AddExpensePage({
     <ExpenseForm
       householdId={householdId}
       currentUserId={currentUserId}
+      accountingMonthStartDay={accountingMonthStartDay}
       commonFundBalance={commonFundBalance}
       commonFundEnabled={commonFundEnabled}
       commonFundLoading={commonFundLoading}
@@ -172,6 +177,7 @@ function ExpenseFormState({
 type ExpenseFormProps = {
   householdId: string
   currentUserId: string
+  accountingMonthStartDay: number
   commonFundBalance: number
   commonFundEnabled: boolean
   commonFundLoading: boolean
@@ -187,6 +193,7 @@ type ExpenseFormProps = {
 function ExpenseForm({
   householdId,
   currentUserId,
+  accountingMonthStartDay,
   commonFundBalance,
   commonFundEnabled,
   commonFundLoading,
@@ -199,6 +206,11 @@ function ExpenseForm({
   onUpdated,
 }: ExpenseFormProps) {
   const isEditing = Boolean(initialExpense)
+  const initialDate = initialExpense?.expenseDate ?? getLocalDate()
+  const initialAutomaticAccountingMonth = calculateAccountingMonth(
+    initialDate,
+    accountingMonthStartDay,
+  )
   const defaultPayerId =
     initialExpense?.payments[0]?.userId ??
     members.find((member) => member.userId === currentUserId)?.userId ??
@@ -214,7 +226,16 @@ function ExpenseForm({
     initialExpense?.paymentSource ?? 'member',
   )
   const [split, setSplit] = useState<SplitValues>(() => getInitialSplits(members, initialExpense))
-  const [date, setDate] = useState(initialExpense?.expenseDate ?? getLocalDate)
+  const [date, setDate] = useState(initialDate)
+  const [accountingMonth, setAccountingMonth] = useState(
+    initialExpense?.accountingMonth ?? initialAutomaticAccountingMonth,
+  )
+  const [accountingMonthManuallyChanged, setAccountingMonthManuallyChanged] = useState(
+    Boolean(
+      initialExpense &&
+      initialExpense.accountingMonth !== initialAutomaticAccountingMonth
+    ),
+  )
   const [note, setNote] = useState(initialExpense?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -285,6 +306,13 @@ function ExpenseForm({
     : isOtherMemberSoleExpense
       ? 'Los gastos personales solo puede registrarlos cada usuario desde su propia cuenta.'
       : 'Este gasto será compartido.'
+  const automaticAccountingMonth = (() => {
+    try {
+      return calculateAccountingMonth(date, accountingMonthStartDay)
+    } catch {
+      return accountingMonth
+    }
+  })()
 
   useEffect(() => {
     if (!savedExpense || isEditing || !onCreated) return
@@ -349,6 +377,10 @@ function ExpenseForm({
       nextErrors.date = 'Selecciona una fecha válida'
     }
 
+    if (!/^\d{4}-\d{2}-01$/.test(accountingMonth)) {
+      nextErrors.accountingMonth = 'Selecciona un mes contable válido'
+    }
+
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -387,6 +419,7 @@ function ExpenseForm({
           amount: numericAmount,
           categoryId,
           expenseDate: date,
+          accountingMonth,
           expenseType: effectiveExpenseType,
           note: note.trim(),
           paymentSource: isPersonal ? 'member' : paymentSource,
@@ -410,6 +443,7 @@ function ExpenseForm({
         amount: numericAmount,
         categoryId,
         expenseDate: date,
+        accountingMonth,
         expenseType: effectiveExpenseType,
         note: note.trim(),
         paymentSource: isPersonal ? 'member' : paymentSource,
@@ -703,13 +737,56 @@ function ExpenseForm({
               aria-invalid={Boolean(errors.date)}
               aria-describedby={errors.date ? 'expense-date-error' : undefined}
               onChange={(event) => {
-                setDate(event.target.value)
+                const nextDate = event.target.value
+                setDate(nextDate)
+                if (!accountingMonthManuallyChanged && nextDate) {
+                  try {
+                    setAccountingMonth(
+                      calculateAccountingMonth(nextDate, accountingMonthStartDay),
+                    )
+                  } catch {
+                    // The date field displays its own validation error.
+                  }
+                }
                 clearError('date')
               }}
             />
             {errors.date && (
               <p className="field-error" id="expense-date-error">
                 {errors.date}
+              </p>
+            )}
+          </div>
+
+          <div className="form-divider" />
+
+          <div className="form-field">
+            <label id="expense-accounting-month-label">Mes contable</label>
+            <AccountingMonthField
+              id="expense-accounting-month"
+              value={accountingMonth}
+              automaticValue={automaticAccountingMonth}
+              labelledBy="expense-accounting-month-label"
+              disabled={isSaving}
+              onChange={(nextAccountingMonth) => {
+                setAccountingMonth(nextAccountingMonth)
+                setAccountingMonthManuallyChanged(
+                  nextAccountingMonth !== automaticAccountingMonth,
+                )
+                clearError('accountingMonth')
+              }}
+              onUseAutomatic={() => {
+                setAccountingMonth(automaticAccountingMonth)
+                setAccountingMonthManuallyChanged(false)
+                clearError('accountingMonth')
+              }}
+            />
+            <p className="accounting-month-help">
+              Se usa en totales y estadísticas; no cambia la fecha real.
+            </p>
+            {errors.accountingMonth && (
+              <p className="field-error" role="alert">
+                {errors.accountingMonth}
               </p>
             )}
           </div>

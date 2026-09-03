@@ -1,6 +1,7 @@
 import './EditableExpenseDetails.css'
 import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import { AccountingMonthField } from './AccountingMonthField'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
 import { ExpenseServiceError, updateExpense } from '../services/expenses'
 import type { ExpenseCategory, ExpenseMember } from '../types/expenseCreation'
@@ -16,6 +17,10 @@ import {
   updateExpenseSplitPercentages,
 } from '../utils/expenseEditing'
 import type { ExpenseEditDraft } from '../utils/expenseEditing'
+import {
+  calculateAccountingMonth,
+  formatAccountingMonth,
+} from '../utils/accountingMonth'
 import { formatCurrency } from '../utils/formatCurrency'
 import { formatLongDate } from '../utils/formatDate'
 
@@ -26,12 +31,14 @@ type EditableField =
   | 'payer'
   | 'split'
   | 'date'
+  | 'accountingMonth'
   | 'note'
 
 type EditableExpenseDetailsProps = {
   expense: ExpenseRecord
   householdId: string
   currentUserId: string
+  accountingMonthStartDay: number
   commonFundBalance: number
   commonFundEnabled: boolean
   commonFundLoading: boolean
@@ -73,6 +80,9 @@ function validateDraft(
   if (!draft.expenseDate || Number.isNaN(new Date(`${draft.expenseDate}T12:00:00`).getTime())) {
     return 'Selecciona una fecha válida.'
   }
+  if (!/^\d{4}-\d{2}-01$/.test(draft.accountingMonth)) {
+    return 'Selecciona un mes contable válido.'
+  }
 
   if (draft.paymentSource === 'member') {
     const percentages = members.map((member) => draft.splits[member.userId] ?? '')
@@ -102,6 +112,7 @@ export function EditableExpenseDetails({
   expense,
   householdId,
   currentUserId,
+  accountingMonthStartDay,
   commonFundBalance,
   commonFundEnabled,
   commonFundLoading,
@@ -113,12 +124,17 @@ export function EditableExpenseDetails({
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingConversion, setPendingConversion] = useState<ExpenseType | null>(null)
+  const [accountingMonthManuallyChanged, setAccountingMonthManuallyChanged] = useState(false)
   const canEdit = !formData.loading && !formData.error
   const canRestorePersonal = expense.personalOriginOwnerId === currentUserId
 
   const startEditing = (field: EditableField) => {
     if (!canEdit || isSaving) return
     setDraft(createExpenseEditDraft(expense, formData.members))
+    setAccountingMonthManuallyChanged(
+      expense.accountingMonth !==
+        calculateAccountingMonth(expense.expenseDate, accountingMonthStartDay),
+    )
     setSaveError(null)
     setActiveField(field)
   }
@@ -130,6 +146,7 @@ export function EditableExpenseDetails({
     setDraft(null)
     setSaveError(null)
     setPendingConversion(null)
+    setAccountingMonthManuallyChanged(false)
   }
 
   const saveEditing = async (confirmedConversion: ExpenseType | null = null) => {
@@ -165,6 +182,7 @@ export function EditableExpenseDetails({
       setPendingConversion(null)
       setActiveField(null)
       setDraft(null)
+      setAccountingMonthManuallyChanged(false)
     } catch (error) {
       setSaveError(error instanceof ExpenseServiceError ? error.message : 'No hemos podido actualizar el gasto.')
     } finally {
@@ -437,7 +455,64 @@ export function EditableExpenseDetails({
             type="date"
             value={draft.expenseDate}
             aria-label="Fecha"
-            onChange={(event) => updateDraft({ expenseDate: event.target.value })}
+            onChange={(event) => {
+              const nextDate = event.target.value
+              const changes: Partial<ExpenseEditDraft> = { expenseDate: nextDate }
+
+              if (!accountingMonthManuallyChanged && nextDate) {
+                try {
+                  changes.accountingMonth = calculateAccountingMonth(
+                    nextDate,
+                    accountingMonthStartDay,
+                  )
+                } catch {
+                  // The date validation handles incomplete native input values.
+                }
+              }
+
+              updateDraft(changes)
+            }}
+          />
+        </InlineEditor>
+      )
+    }
+
+    if (field === 'accountingMonth') {
+      const accountingMonthDraft = draft
+      let automaticAccountingMonth = accountingMonthDraft.accountingMonth
+
+      try {
+        automaticAccountingMonth = calculateAccountingMonth(
+          accountingMonthDraft.expenseDate,
+          accountingMonthStartDay,
+        )
+      } catch {
+        // The saved value remains selectable while the date is incomplete.
+      }
+
+      return (
+        <InlineEditor
+          label="Mes contable"
+          isSaving={isSaving}
+          error={saveError}
+          onSave={saveEditing}
+          onCancel={cancelEditing}
+        >
+          <AccountingMonthField
+            id="inline-accounting-month"
+            value={accountingMonthDraft.accountingMonth}
+            automaticValue={automaticAccountingMonth}
+            disabled={isSaving}
+            onChange={(nextAccountingMonth) => {
+              updateDraft({ accountingMonth: nextAccountingMonth })
+              setAccountingMonthManuallyChanged(
+                nextAccountingMonth !== automaticAccountingMonth,
+              )
+            }}
+            onUseAutomatic={() => {
+              updateDraft({ accountingMonth: automaticAccountingMonth })
+              setAccountingMonthManuallyChanged(false)
+            }}
           />
         </InlineEditor>
       )
@@ -542,6 +617,11 @@ export function EditableExpenseDetails({
         </span>,
       )}
       {renderRow('date', 'Fecha', formatLongDate(expense.expenseDate))}
+      {renderRow(
+        'accountingMonth',
+        'Mes contable',
+        formatAccountingMonth(expense.accountingMonth),
+      )}
       {renderRow('note', 'Nota', expense.note || 'Añadir nota', true)}
       {pendingConversion && (
         <div className="inline-conversion-backdrop">
