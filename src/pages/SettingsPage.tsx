@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { CategorySettings } from '../components/CategorySettings'
 import { PasswordChangeForm } from '../components/PasswordChangeForm'
 import {
   createHouseholdInvite,
@@ -25,6 +26,7 @@ type SettingsPageProps = {
   onSignOut: () => void
   onViewSettlements: () => void
   onAccountingMonthStartDayChange: (startDay: number) => Promise<void>
+  onCategoriesChanged: () => void | Promise<unknown>
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -56,6 +58,7 @@ export function SettingsPage({
   onSignOut,
   onViewSettlements,
   onAccountingMonthStartDayChange,
+  onCategoriesChanged,
 }: SettingsPageProps) {
   const requestId = useRef(0)
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([])
@@ -400,6 +403,11 @@ export function SettingsPage({
           </div>
         )}
       </section>
+
+      <CategorySettings
+        householdId={householdId}
+        onCategoriesChanged={onCategoriesChanged}
+      />
 
       <section className="card settings-card settings-settlements-card">
         <div className="settings-section-heading">

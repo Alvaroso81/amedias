@@ -120,7 +120,7 @@ export async function loadHouseholdExpenses(
         .order('created_at', { ascending: false }),
       supabase
         .from('categories')
-        .select('id, name, icon')
+        .select('id, name, icon, archived, sort_order')
         .eq('household_id', householdId),
       supabase
         .from('household_members')
@@ -195,6 +195,8 @@ export async function loadHouseholdExpenses(
           id: category.id,
           name: category.name,
           icon: category.icon ?? '📦',
+          isActive: !category.archived,
+          sortOrder: category.sort_order,
         } satisfies ExpenseReadCategory,
       ]),
     )
@@ -246,8 +248,16 @@ export async function loadHouseholdExpenses(
             id: expense.category_id,
             name: 'Categoría no disponible',
             icon: '📦',
+            isActive: false,
+            sortOrder: 0,
           })
-        : { id: null, name: 'Sin categoría', icon: '📦' },
+        : {
+            id: null,
+            name: 'Sin categoría',
+            icon: '📦',
+            isActive: false,
+            sortOrder: 0,
+          },
       payments: paymentsByExpense.get(expense.id) ?? [],
       splits: splitsByExpense.get(expense.id) ?? [],
       createdBy: expense.created_by,
@@ -282,9 +292,10 @@ export async function loadExpenseFormData(householdId: string) {
   const [categoriesResult, membersResult] = await Promise.all([
     supabase
       .from('categories')
-      .select('id, name, icon')
+      .select('id, name, icon, sort_order')
       .eq('household_id', householdId)
       .eq('archived', false)
+      .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
     supabase
       .from('household_members')
@@ -333,6 +344,7 @@ export async function loadExpenseFormData(householdId: string) {
     id: category.id,
     name: category.name,
     icon: category.icon ?? '📦',
+    sortOrder: category.sort_order,
   }))
 
   const members: ExpenseMember[] = membersResult.data.map((member) => ({
@@ -380,7 +392,7 @@ export async function createExpense(input: CreateExpenseInput) {
 }
 
 export async function updateExpense(input: UpdateExpenseInput) {
-  const { data, error } = await supabase.rpc('update_expense_v3', {
+  const { data, error } = await supabase.rpc('update_expense_v4', {
     p_expense_id: input.expenseId,
     p_description: input.description,
     p_amount: input.amount,

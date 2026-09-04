@@ -12,6 +12,8 @@ export type ExpenseReadCategory = {
   id: string | null
   name: string
   icon: string
+  isActive: boolean
+  sortOrder: number
 }
 
 export type ExpensePaymentDetail = {

@@ -451,6 +451,7 @@ function ExpenseApp({
         isSigningOut={isSigningOut}
         signOutError={signOutError}
         onAccountingMonthStartDayChange={onAccountingMonthStartDayChange}
+        onCategoriesChanged={() => refresh()}
         onSignOut={onSignOut}
         onViewSettlements={goToSettlements}
       />

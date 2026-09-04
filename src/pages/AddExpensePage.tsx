@@ -351,7 +351,13 @@ function ExpenseForm({
       nextErrors.description = 'Introduce un concepto'
     }
 
-    if (!categoryId || !categories.some((category) => category.id === categoryId)) {
+    const keepsHistoricalCategory = Boolean(
+      initialExpense && categoryId === initialExpense.categoryId,
+    )
+    if (
+      !categoryId ||
+      (!keepsHistoricalCategory && !categories.some((category) => category.id === categoryId))
+    ) {
       nextErrors.category = 'Selecciona una categoría'
     }
 
@@ -559,6 +565,12 @@ function ExpenseForm({
                 }}
               >
                 <option value="">Selecciona una categoría</option>
+                {initialExpense?.categoryId === categoryId &&
+                  !categories.some((category) => category.id === categoryId) && (
+                    <option value={categoryId}>
+                      {initialExpense.category.icon} {initialExpense.category.name} (inactiva)
+                    </option>
+                  )}
                 {categories.map((category) => (
                   <option value={category.id} key={category.id}>
                     {category.icon} {category.name}

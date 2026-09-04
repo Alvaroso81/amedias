@@ -1,11 +1,8 @@
 import type { ExpenseType } from './finance'
 import type { PaymentSource } from './commonFund'
+import type { HouseholdCategory } from './category'
 
-export type ExpenseCategory = {
-  id: string
-  name: string
-  icon: string
-}
+export type ExpenseCategory = Pick<HouseholdCategory, 'id' | 'name' | 'icon' | 'sortOrder'>
 
 export type ExpenseMember = {
   userId: string

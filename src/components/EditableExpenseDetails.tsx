@@ -66,7 +66,11 @@ function validateDraft(
   if (amount > 9999999999.99 || !hasAtMostTwoDecimals(amount)) {
     return 'El importe debe tener como máximo dos decimales.'
   }
-  if (!categories.some((category) => category.id === draft.categoryId)) {
+  const keepsHistoricalCategory = draft.categoryId === originalExpense.categoryId
+  if (
+    !keepsHistoricalCategory &&
+    !categories.some((category) => category.id === draft.categoryId)
+  ) {
     return 'Selecciona una categoría activa.'
   }
   if (draft.paymentSource === 'common_fund') {
@@ -289,6 +293,12 @@ export function EditableExpenseDetails({
             aria-label="Categoría"
             onChange={(event) => updateDraft({ categoryId: event.target.value })}
           >
+            {!formData.categories.some((category) => category.id === draft.categoryId) &&
+              draft.categoryId === expense.categoryId && (
+                <option value={draft.categoryId}>
+                  {expense.category.icon} {expense.category.name} (inactiva)
+                </option>
+              )}
             {formData.categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.icon} {category.name}
