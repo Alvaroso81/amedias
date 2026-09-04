@@ -24,6 +24,11 @@
   padding: 12px 0;
 }
 
+.category-settings-list--active li {
+  grid-template-columns: 40px 42px minmax(0, 1fr) auto;
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
 .category-settings-list li + li {
   border-top: 1px solid var(--border);
 }
@@ -36,6 +41,74 @@
   border-radius: 13px;
   background: var(--surface-soft);
   font-size: 1.15rem;
+}
+
+.category-drag-handle {
+  display: grid;
+  width: 40px;
+  height: 44px;
+  min-width: 40px;
+  min-height: 44px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.category-drag-handle:hover,
+.category-drag-handle:focus-visible {
+  color: var(--primary-dark);
+  background: var(--surface-soft);
+}
+
+.category-drag-handle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.category-drag-handle:active,
+.category-settings-row--dragging .category-drag-handle {
+  cursor: grabbing;
+}
+
+.category-drag-handle:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.category-settings-list--active .category-settings-row--dragging {
+  z-index: 1;
+  opacity: 0.32;
+}
+
+.category-drag-overlay {
+  display: grid;
+  width: 100%;
+  min-width: 260px;
+  grid-template-columns: 40px 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid rgba(55, 110, 90, 0.14);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(38, 69, 58, 0.18);
+  cursor: grabbing;
+  opacity: 0.94;
+}
+
+.category-drag-overlay-handle {
+  display: grid;
+  width: 40px;
+  height: 44px;
+  place-items: center;
+  color: var(--primary-dark);
 }
 
 .category-settings-copy {
@@ -204,9 +277,17 @@
     grid-template-columns: 42px minmax(0, 1fr);
   }
 
+  .category-settings-list--active li {
+    grid-template-columns: 40px 42px minmax(0, 1fr);
+  }
+
   .category-settings-actions {
     grid-column: 1 / -1;
     justify-content: stretch;
+  }
+
+  .category-settings-list--active .category-settings-actions {
+    grid-column: 2 / -1;
   }
 
   .category-settings-actions button {

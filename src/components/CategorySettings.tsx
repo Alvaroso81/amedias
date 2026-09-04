@@ -1,6 +1,24 @@
 import './CategorySettings.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   CategoryServiceError,
   createCategory,
@@ -28,11 +46,20 @@ export function CategorySettings({
   onCategoriesChanged,
 }: CategorySettingsProps) {
   const requestId = useRef(0)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
   const [categories, setCategories] = useState<HouseholdCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [operationError, setOperationError] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
   const [editor, setEditor] = useState<CategoryEditor>(null)
   const [showInactive, setShowInactive] = useState(false)
 
@@ -74,6 +101,7 @@ export function CategorySettings({
 
   const activeCategories = categories.filter((category) => category.isActive)
   const inactiveCategories = categories.filter((category) => !category.isActive)
+  const draggedCategory = activeCategories.find(({ id }) => id === draggedCategoryId)
   const isBusy = busyAction !== null
 
   const handleSave = async (input: CategoryMutationInput) => {
@@ -112,21 +140,33 @@ export function CategorySettings({
     }
   }
 
-  const handleMove = async (categoryIndex: number, offset: -1 | 1) => {
-    const targetIndex = categoryIndex + offset
-    if (targetIndex < 0 || targetIndex >= activeCategories.length) return
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    setDraggedCategoryId(String(active.id))
+    setOperationError(null)
+  }
 
-    const reordered = [...activeCategories]
-    const [category] = reordered.splice(categoryIndex, 1)
-    reordered.splice(targetIndex, 0, category)
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    setDraggedCategoryId(null)
+    if (!over || active.id === over.id || isBusy) return
 
-    setBusyAction(`reorder:${category.id}`)
+    const previousCategories = categories
+    const previousIndex = activeCategories.findIndex(({ id }) => id === active.id)
+    const nextIndex = activeCategories.findIndex(({ id }) => id === over.id)
+    if (previousIndex < 0 || nextIndex < 0) return
+
+    const reorderedActive = arrayMove(activeCategories, previousIndex, nextIndex).map(
+      (category, sortOrder) => ({ ...category, sortOrder }),
+    )
+    const reorderedCategories = [...reorderedActive, ...inactiveCategories]
+
+    setCategories(reorderedCategories)
+    setBusyAction(`reorder:${active.id}`)
     setOperationError(null)
 
     try {
-      await reorderCategories(householdId, reordered.map(({ id }) => id))
-      await refreshAfterMutation()
+      await reorderCategories(householdId, reorderedActive.map(({ id }) => id))
     } catch (error) {
+      setCategories(previousCategories)
       setOperationError(
         error instanceof CategoryServiceError
           ? error.message
@@ -184,56 +224,41 @@ export function CategorySettings({
         </div>
       ) : (
         <>
-          <ul className="category-settings-list" aria-label="Categorías activas">
-            {activeCategories.map((category, index) => (
-              <li key={category.id}>
-                <span className="category-settings-icon" aria-hidden="true">{category.icon}</span>
-                <div className="category-settings-copy">
-                  <strong>{category.name}</strong>
-                  <span>Activa</span>
-                </div>
-                <div className="category-settings-actions">
-                  <button
-                    type="button"
-                    disabled={isBusy || index === 0}
-                    aria-label={`Subir ${category.name}`}
-                    title="Subir"
-                    onClick={() => void handleMove(index, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy || index === activeCategories.length - 1}
-                    aria-label={`Bajar ${category.name}`}
-                    title="Bajar"
-                    onClick={() => void handleMove(index, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragCancel={() => setDraggedCategoryId(null)}
+            onDragEnd={(event) => void handleDragEnd(event)}
+          >
+            <SortableContext
+              items={activeCategories.map(({ id }) => id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul
+                className="category-settings-list category-settings-list--active"
+                aria-label="Categorías activas ordenables"
+              >
+                {activeCategories.map((category) => (
+                  <SortableCategoryRow
+                    category={category}
                     disabled={isBusy}
-                    onClick={() => {
+                    canDeactivate={activeCategories.length > 1}
+                    isDeactivating={busyAction === `deactivate:${category.id}`}
+                    key={category.id}
+                    onEdit={() => {
                       setOperationError(null)
                       setEditor({ mode: 'edit', category })
                     }}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    className="category-settings-danger"
-                    type="button"
-                    disabled={isBusy || activeCategories.length === 1}
-                    title={activeCategories.length === 1 ? 'Debe quedar al menos una categoría activa' : undefined}
-                    onClick={() => void handleActiveChange(category, false)}
-                  >
-                    {busyAction === `deactivate:${category.id}` ? 'Desactivando…' : 'Desactivar'}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    onDeactivate={() => void handleActiveChange(category, false)}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+            <DragOverlay>
+              {draggedCategory ? <CategoryDragOverlay category={draggedCategory} /> : null}
+            </DragOverlay>
+          </DndContext>
 
           {inactiveCategories.length > 0 && (
             <div className="inactive-categories">
@@ -287,6 +312,88 @@ export function CategorySettings({
 
       {operationError && <p className="auth-submit-error" role="alert">{operationError}</p>}
     </section>
+  )
+}
+
+function CategoryDragOverlay({ category }: { category: HouseholdCategory }) {
+  return (
+    <div className="category-drag-overlay" aria-hidden="true">
+      <span className="category-drag-overlay-handle">⠿</span>
+      <span className="category-settings-icon">{category.icon}</span>
+      <div className="category-settings-copy">
+        <strong>{category.name}</strong>
+        <span>Activa</span>
+      </div>
+    </div>
+  )
+}
+
+type SortableCategoryRowProps = {
+  category: HouseholdCategory
+  disabled: boolean
+  canDeactivate: boolean
+  isDeactivating: boolean
+  onEdit: () => void
+  onDeactivate: () => void
+}
+
+function SortableCategoryRow({
+  category,
+  disabled,
+  canDeactivate,
+  isDeactivating,
+  onEdit,
+  onDeactivate,
+}: SortableCategoryRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id, disabled })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <li
+      className={isDragging ? 'category-settings-row--dragging' : undefined}
+      ref={setNodeRef}
+      style={style}
+    >
+      <button
+        className="category-drag-handle"
+        type="button"
+        disabled={disabled}
+        {...attributes}
+        {...listeners}
+        aria-label={`Mover categoría ${category.name}`}
+      >
+        <span aria-hidden="true">⠿</span>
+      </button>
+      <span className="category-settings-icon" aria-hidden="true">{category.icon}</span>
+      <div className="category-settings-copy">
+        <strong>{category.name}</strong>
+        <span>Activa</span>
+      </div>
+      <div className="category-settings-actions">
+        <button type="button" disabled={disabled} onClick={onEdit}>
+          Editar
+        </button>
+        <button
+          className="category-settings-danger"
+          type="button"
+          disabled={disabled || !canDeactivate}
+          title={!canDeactivate ? 'Debe quedar al menos una categoría activa' : undefined}
+          onClick={onDeactivate}
+        >
+          {isDeactivating ? 'Desactivando…' : 'Desactivar'}
+        </button>
+      </div>
+    </li>
   )
 }
 
