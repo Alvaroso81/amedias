@@ -15,8 +15,10 @@ import type {
   SettlementRecord,
 } from '../types/expenseRead'
 import type { SettlementDirection } from '../types/settlement'
+import type { RecurringExpenseOccurrence } from '../types/recurringExpenses'
 import { getCommonExpensesInPeriod } from '../utils/commonExpenseSummary'
 import { calculateAccountingMonth } from '../utils/accountingMonth'
+import { formatCurrency } from '../utils/formatCurrency'
 import {
   formatMonthYear,
   getFirstDayOfMonth,
@@ -50,6 +52,8 @@ type HomePageProps = {
   onSettleAccounts: (direction: SettlementDirection) => void
   onSignOut: () => void
   statusMessage: string | null
+  pendingRecurringOccurrences: RecurringExpenseOccurrence[]
+  onViewRecurringExpenses: () => void
 }
 
 function roundMoney(amount: number) {
@@ -82,6 +86,8 @@ export function HomePage({
   onSettleAccounts,
   onSignOut,
   statusMessage,
+  pendingRecurringOccurrences,
+  onViewRecurringExpenses,
 }: HomePageProps) {
   const today = useMemo(() => getTodayIsoDate(), [])
   const persistedSummaryStartDate = commonExpensesStartDate ?? getFirstDayOfMonth(today)
@@ -292,6 +298,29 @@ export function HomePage({
         <p className="expense-update-notice" role="status">
           <span aria-hidden="true">✓</span> {statusMessage}
         </p>
+      )}
+
+      {pendingRecurringOccurrences.length > 0 && (
+        <section className="card home-recurring-card" aria-labelledby="home-recurring-title">
+          <div className="home-recurring-heading">
+            <div>
+              <span>Gastos pendientes</span>
+              <h2 id="home-recurring-title">
+                {pendingRecurringOccurrences.length} {pendingRecurringOccurrences.length === 1 ? 'recurrente por revisar' : 'recurrentes por revisar'}
+              </h2>
+            </div>
+            <button type="button" onClick={onViewRecurringExpenses}>Revisar</button>
+          </div>
+          <div className="home-recurring-preview">
+            {pendingRecurringOccurrences.slice(0, 2).map((occurrence) => (
+              <div key={occurrence.id}>
+                <span aria-hidden="true">{occurrence.recurringExpense.category.icon}</span>
+                <strong>{occurrence.recurringExpense.description}</strong>
+                <b>{formatCurrency(occurrence.recurringExpense.amountCents / 100)}</b>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {loading ? (

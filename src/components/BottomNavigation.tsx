@@ -28,7 +28,7 @@ export function BottomNavigation({
   const isAddingExpense = currentPage === 'add-expense'
   const isHomeSection = ['home', 'common-fund'].includes(currentPage)
   const isExpensesSection = ['expenses', 'expense-detail'].includes(currentPage)
-  const isSettingsSection = ['settings', 'settlements', 'settlement-detail'].includes(currentPage)
+  const isSettingsSection = ['settings', 'settlements', 'settlement-detail', 'recurring-expenses', 'recurring-occurrence'].includes(currentPage)
 
   return (
     <nav className="bottom-navigation" aria-label="Navegación principal">

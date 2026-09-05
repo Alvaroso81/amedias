@@ -8,3 +8,5 @@ export type AppPage =
   | 'settlement-detail'
   | 'statistics'
   | 'settings'
+  | 'recurring-expenses'
+  | 'recurring-occurrence'

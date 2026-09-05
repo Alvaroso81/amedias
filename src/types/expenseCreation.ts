@@ -36,6 +36,18 @@ export type CreateExpenseInput = {
   splits: ExpenseSplitPayload[]
 }
 
+export type ExpenseCreationDraft = {
+  description: string
+  amount: number
+  categoryId: string
+  expenseDate: string
+  expenseType: ExpenseType
+  note: string
+  paymentSource: PaymentSource
+  paidByUserId: string | null
+  splitPercentages: Record<string, number>
+}
+
 export type UpdateExpenseInput = {
   expenseId: string
   description: string

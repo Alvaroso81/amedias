@@ -9,6 +9,7 @@ import { useAuth } from './hooks/useAuth'
 import { useCommonFund } from './hooks/useCommonFund'
 import { useExpenses } from './hooks/useExpenses'
 import { useHousehold } from './hooks/useHousehold'
+import { useRecurringExpenses } from './hooks/useRecurringExpenses'
 import { AddExpensePage } from './pages/AddExpensePage'
 import { AuthPage } from './pages/AuthPage'
 import { CommonFundPage } from './pages/CommonFundPage'
@@ -17,15 +18,19 @@ import { ExpensesPage } from './pages/ExpensesPage'
 import { HomePage } from './pages/HomePage'
 import { HouseholdOnboardingPage } from './pages/HouseholdOnboardingPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { RecurringExpensesPage } from './pages/RecurringExpensesPage'
 import { SettlementDetailPage } from './pages/SettlementDetailPage'
 import { SettlementsPage } from './pages/SettlementsPage'
 import { deleteExpense, ExpenseServiceError } from './services/expenses'
 import { deleteSettlement } from './services/settlements'
 import { supabase } from './services/supabase'
+import { confirmRecurringOccurrence } from './services/recurringExpenses'
+import type { ExpenseCreationDraft } from './types/expenseCreation'
 import type { HouseholdRole } from './types/household'
 import type { StatisticsExpenseFilter } from './types/expenseFilters'
 import type { AppPage } from './types/navigation'
 import type { SettlementDirection } from './types/settlement'
+import type { RecurringExpenseOccurrence } from './types/recurringExpenses'
 import { capturePendingInviteToken, clearPendingInviteToken } from './utils/pendingInvite'
 
 const StatisticsPage = lazy(() =>
@@ -229,6 +234,7 @@ function ExpenseApp({
     refresh,
   } = useExpenses(householdId, currentUserId)
   const commonFund = useCommonFund(householdId)
+  const recurring = useRecurringExpenses(householdId)
   const [currentPage, setCurrentPage] = useState<AppPage>('home')
   const [statisticsInitialScope, setStatisticsInitialScope] = useState<'common' | 'personal'>('common')
   const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
@@ -239,6 +245,7 @@ function ExpenseApp({
   const [settlementDialog, setSettlementDialog] = useState<SettlementDialogState | null>(null)
   const [statisticsExpenseFilter, setStatisticsExpenseFilter] =
     useState<StatisticsExpenseFilter | null>(null)
+  const [selectedOccurrence, setSelectedOccurrence] = useState<RecurringExpenseOccurrence | null>(null)
   const selectedExpense = expenses.find((expense) => expense.id === selectedExpenseId)
   const selectedSettlement = settlements.find(
     (settlement) => settlement.id === selectedSettlementId,
@@ -292,6 +299,11 @@ function ExpenseApp({
     setCurrentPage('settings')
   }
 
+  const goToRecurringExpenses = () => {
+    setSelectedOccurrence(null)
+    setCurrentPage('recurring-expenses')
+  }
+
   const goToCommonFund = (dialog?: 'top-up') => {
     setCommonFundInitialDialog(dialog)
     setCurrentPage('common-fund')
@@ -308,6 +320,17 @@ function ExpenseApp({
     setSelectedExpenseId(null)
     setCurrentPage('home')
   }, [commonFund, refresh])
+
+  const handleRecurringExpenseCreated = useCallback(async () => {
+    await Promise.all([refresh(), commonFund.refresh(), recurring.refresh()])
+    setSelectedOccurrence(null)
+    setCurrentPage('home')
+  }, [commonFund, recurring, refresh])
+
+  const reviewOccurrence = (occurrence: RecurringExpenseOccurrence) => {
+    setSelectedOccurrence(occurrence)
+    setCurrentPage('recurring-occurrence')
+  }
 
   const openExpense = (expenseId: string) => {
     setExpenseNotice(null)
@@ -397,6 +420,8 @@ function ExpenseApp({
         }}
         onSignOut={onSignOut}
         statusMessage={settlementNotice}
+        pendingRecurringOccurrences={recurring.pendingOccurrences}
+        onViewRecurringExpenses={goToRecurringExpenses}
       />
     )
   } else if (currentPage === 'expenses') {
@@ -454,6 +479,56 @@ function ExpenseApp({
         onCategoriesChanged={() => refresh()}
         onSignOut={onSignOut}
         onViewSettlements={goToSettlements}
+        onViewRecurringExpenses={goToRecurringExpenses}
+      />
+    )
+  } else if (currentPage === 'recurring-expenses') {
+    pageContent = (
+      <RecurringExpensesPage
+        householdId={householdId}
+        currentUserId={currentUserId}
+        recurringExpenses={recurring.recurringExpenses}
+        pendingOccurrences={recurring.pendingOccurrences}
+        commonFundEnabled={Boolean(commonFund.settings?.enabled)}
+        loading={recurring.loading}
+        error={recurring.error}
+        onBack={goToSettings}
+        onRetry={() => void recurring.refresh()}
+        onChanged={recurring.refresh}
+        onReviewOccurrence={reviewOccurrence}
+      />
+    )
+  } else if (currentPage === 'recurring-occurrence' && selectedOccurrence) {
+    const template = selectedOccurrence.recurringExpense
+    const initialDraft: ExpenseCreationDraft = {
+      description: template.description,
+      amount: template.amountCents / 100,
+      categoryId: template.categoryId,
+      expenseDate: selectedOccurrence.dueDate,
+      expenseType: template.expenseType,
+      note: template.note,
+      paymentSource: template.paymentSource,
+      paidByUserId: template.payerUserId,
+      splitPercentages: Object.fromEntries(
+        template.splitConfig.map((split) => [split.userId, split.sharePercent]),
+      ),
+    }
+    pageContent = (
+      <AddExpensePage
+        householdId={householdId}
+        currentUserId={currentUserId}
+        accountingMonthStartDay={accountingMonthStartDay}
+        commonFundBalance={commonFund.balance}
+        commonFundEnabled={Boolean(commonFund.settings?.enabled)}
+        commonFundLoading={commonFund.loading}
+        initialDraft={initialDraft}
+        fixedExpenseType
+        useAutomaticAccountingMonth
+        title="Revisar gasto"
+        createAction={(expense) => confirmRecurringOccurrence({ occurrenceId: selectedOccurrence.id, expense })}
+        onOpenCommonFund={() => goToCommonFund('top-up')}
+        onBack={goToRecurringExpenses}
+        onCreated={handleRecurringExpenseCreated}
       />
     )
   } else if (currentPage === 'statistics') {

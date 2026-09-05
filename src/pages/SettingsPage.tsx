@@ -25,6 +25,7 @@ type SettingsPageProps = {
   signOutError: string | null
   onSignOut: () => void
   onViewSettlements: () => void
+  onViewRecurringExpenses: () => void
   onAccountingMonthStartDayChange: (startDay: number) => Promise<void>
   onCategoriesChanged: () => void | Promise<unknown>
 }
@@ -57,6 +58,7 @@ export function SettingsPage({
   signOutError,
   onSignOut,
   onViewSettlements,
+  onViewRecurringExpenses,
   onAccountingMonthStartDayChange,
   onCategoriesChanged,
 }: SettingsPageProps) {
@@ -408,6 +410,19 @@ export function SettingsPage({
         householdId={householdId}
         onCategoriesChanged={onCategoriesChanged}
       />
+
+      <section className="card settings-card settings-settlements-card">
+        <div className="settings-section-heading">
+          <div>
+            <span>Planificación</span>
+            <h2>Gastos recurrentes</h2>
+          </div>
+          <button className="settings-navigation-button" type="button" onClick={onViewRecurringExpenses}>
+            Gestionar <span aria-hidden="true">›</span>
+          </button>
+        </div>
+        <p>Crea plantillas y confirma cada gasto manualmente cuando llegue su fecha.</p>
+      </section>
 
       <section className="card settings-card settings-settlements-card">
         <div className="settings-section-heading">

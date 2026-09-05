@@ -5,7 +5,9 @@ import { ExpenseSavedConfirmation } from '../components/ExpenseSavedConfirmation
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
 import { createExpense, ExpenseServiceError, updateExpense } from '../services/expenses'
 import type {
+  CreateExpenseInput,
   ExpenseCategory,
+  ExpenseCreationDraft,
   ExpenseMember,
   SavedExpenseSummary,
 } from '../types/expenseCreation'
@@ -32,6 +34,11 @@ type AddExpensePageProps = {
   commonFundLoading: boolean
   onOpenCommonFund: () => void
   initialExpense?: ExpenseRecord
+  initialDraft?: ExpenseCreationDraft
+  fixedExpenseType?: boolean
+  useAutomaticAccountingMonth?: boolean
+  title?: string
+  createAction?: (input: CreateExpenseInput) => Promise<string>
   onBack: () => void
   onCreated?: () => void | Promise<void>
   onUpdated?: (expenseId: string) => void | Promise<void>
@@ -82,6 +89,11 @@ export function AddExpensePage({
   commonFundLoading,
   onOpenCommonFund,
   initialExpense,
+  initialDraft,
+  fixedExpenseType = false,
+  useAutomaticAccountingMonth = false,
+  title,
+  createAction,
   onBack,
   onCreated,
   onUpdated,
@@ -130,6 +142,11 @@ export function AddExpensePage({
       commonFundLoading={commonFundLoading}
       onOpenCommonFund={onOpenCommonFund}
       initialExpense={initialExpense}
+      initialDraft={initialDraft}
+      fixedExpenseType={fixedExpenseType}
+      useAutomaticAccountingMonth={useAutomaticAccountingMonth}
+      title={title}
+      createAction={createAction}
       categories={formData.categories}
       members={formData.members}
       onBack={onBack}
@@ -185,6 +202,11 @@ type ExpenseFormProps = {
   categories: ExpenseCategory[]
   members: ExpenseMember[]
   initialExpense?: ExpenseRecord
+  initialDraft?: ExpenseCreationDraft
+  fixedExpenseType: boolean
+  useAutomaticAccountingMonth: boolean
+  title?: string
+  createAction?: (input: CreateExpenseInput) => Promise<string>
   onBack: () => void
   onCreated?: () => void | Promise<void>
   onUpdated?: (expenseId: string) => void | Promise<void>
@@ -201,31 +223,40 @@ function ExpenseForm({
   categories,
   members,
   initialExpense,
+  initialDraft,
+  fixedExpenseType,
+  useAutomaticAccountingMonth,
+  title,
+  createAction,
   onBack,
   onCreated,
   onUpdated,
 }: ExpenseFormProps) {
   const isEditing = Boolean(initialExpense)
-  const initialDate = initialExpense?.expenseDate ?? getLocalDate()
+  const initialDate = initialExpense?.expenseDate ?? initialDraft?.expenseDate ?? getLocalDate()
   const initialAutomaticAccountingMonth = calculateAccountingMonth(
     initialDate,
     accountingMonthStartDay,
   )
   const defaultPayerId =
-    initialExpense?.payments[0]?.userId ??
+    initialExpense?.payments[0]?.userId ?? initialDraft?.paidByUserId ??
     members.find((member) => member.userId === currentUserId)?.userId ??
     members[0]?.userId ??
     ''
   const [amount, setAmount] = useState(() =>
-    initialExpense ? String(initialExpense.amount) : '',
+    initialExpense ? String(initialExpense.amount) : initialDraft ? String(initialDraft.amount) : '',
   )
-  const [description, setDescription] = useState(initialExpense?.description ?? '')
-  const [categoryId, setCategoryId] = useState(initialExpense?.categoryId ?? '')
+  const [description, setDescription] = useState(initialExpense?.description ?? initialDraft?.description ?? '')
+  const [categoryId, setCategoryId] = useState(initialExpense?.categoryId ?? initialDraft?.categoryId ?? '')
   const [paidByUserId, setPaidByUserId] = useState(defaultPayerId)
   const [paymentSource, setPaymentSource] = useState<PaymentSource>(
-    initialExpense?.paymentSource ?? 'member',
+    initialExpense?.paymentSource ?? initialDraft?.paymentSource ?? 'member',
   )
-  const [split, setSplit] = useState<SplitValues>(() => getInitialSplits(members, initialExpense))
+  const [split, setSplit] = useState<SplitValues>(() =>
+    initialDraft
+      ? Object.fromEntries(members.map((member) => [member.userId, String(initialDraft.splitPercentages[member.userId] ?? 0)]))
+      : getInitialSplits(members, initialExpense),
+  )
   const [date, setDate] = useState(initialDate)
   const [accountingMonth, setAccountingMonth] = useState(
     initialExpense?.accountingMonth ?? initialAutomaticAccountingMonth,
@@ -236,7 +267,7 @@ function ExpenseForm({
       initialExpense.accountingMonth !== initialAutomaticAccountingMonth
     ),
   )
-  const [note, setNote] = useState(initialExpense?.note ?? '')
+  const [note, setNote] = useState(initialExpense?.note ?? initialDraft?.note ?? '')
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -244,7 +275,7 @@ function ExpenseForm({
 
   const canBePersonal =
     !initialExpense || initialExpense.personalOriginOwnerId === currentUserId
-  const expenseType = deriveExpenseType({
+  const derivedExpenseType = deriveExpenseType({
     paymentSource,
     paidByUserId,
     currentUserId,
@@ -252,7 +283,9 @@ function ExpenseForm({
     splits: split,
     canBePersonal,
   })
+  const expenseType = fixedExpenseType && initialDraft ? initialDraft.expenseType : derivedExpenseType
   const isPersonal = expenseType === 'personal'
+  const locksPersonal = fixedExpenseType && isPersonal
   const usesCommonFund = paymentSource === 'common_fund'
   const effectivePayerId = paidByUserId
   const numericAmount = Number(amount)
@@ -443,7 +476,7 @@ function ExpenseForm({
         )
       }
 
-      const expenseId = await createExpense({
+      const createInput: CreateExpenseInput = {
         householdId,
         description: description.trim(),
         amount: numericAmount,
@@ -456,7 +489,8 @@ function ExpenseForm({
         paidByUserId: usesCommonFund ? null : effectivePayerId,
         payerAmount: usesCommonFund ? null : numericAmount,
         splits,
-      })
+      }
+      const expenseId = await (createAction ?? createExpense)(createInput)
 
       setSavedExpense({
         id: expenseId,
@@ -480,7 +514,7 @@ function ExpenseForm({
   if (savedExpense) {
     return (
       <div className="add-expense-page">
-        <ExpensePageHeader onBack={onBack} title="Nuevo gasto" />
+        <ExpensePageHeader onBack={onBack} title={title ?? 'Nuevo gasto'} />
         <ExpenseSavedConfirmation expense={savedExpense} />
       </div>
     )
@@ -490,7 +524,7 @@ function ExpenseForm({
     <div className="add-expense-page">
       <ExpensePageHeader
         onBack={onBack}
-        title={isEditing ? 'Editar gasto' : 'Nuevo gasto'}
+        title={title ?? (isEditing ? 'Editar gasto' : 'Nuevo gasto')}
         isEditing={isEditing}
       />
 
@@ -593,7 +627,7 @@ function ExpenseForm({
               <button
                 className={usesCommonFund ? 'segment-button segment-button--active' : 'segment-button'}
                 type="button"
-                disabled={commonFundLoading || !commonFundEnabled || members.length !== 2}
+                disabled={locksPersonal || commonFundLoading || !commonFundEnabled || members.length !== 2}
                 aria-pressed={usesCommonFund}
                 onClick={() => {
                   setPaymentSource('common_fund')
@@ -612,6 +646,7 @@ function ExpenseForm({
                       : 'segment-button'
                   }
                   type="button"
+                  disabled={locksPersonal && member.userId !== currentUserId}
                   aria-pressed={!usesCommonFund && effectivePayerId === member.userId}
                   key={member.userId}
                   onClick={() => {
@@ -640,7 +675,7 @@ function ExpenseForm({
 
           <fieldset className="form-field form-fieldset split-fieldset">
             <legend>¿Cómo se reparte?</legend>
-            {!usesCommonFund ? (
+            {!usesCommonFund && !locksPersonal ? (
               <>
                 <div className="segmented-control split-shortcuts" aria-label="Atajos de reparto">
                   <button
@@ -774,33 +809,34 @@ function ExpenseForm({
 
           <div className="form-field">
             <label id="expense-accounting-month-label">Mes contable</label>
-            <AccountingMonthField
-              id="expense-accounting-month"
-              value={accountingMonth}
-              automaticValue={automaticAccountingMonth}
-              labelledBy="expense-accounting-month-label"
-              disabled={isSaving}
-              onChange={(nextAccountingMonth) => {
-                setAccountingMonth(nextAccountingMonth)
-                setAccountingMonthManuallyChanged(
-                  nextAccountingMonth !== automaticAccountingMonth,
-                )
-                clearError('accountingMonth')
-              }}
-              onUseAutomatic={() => {
-                setAccountingMonth(automaticAccountingMonth)
-                setAccountingMonthManuallyChanged(false)
-                clearError('accountingMonth')
-              }}
-            />
-            <p className="accounting-month-help">
-              Se usa en totales y estadísticas; no cambia la fecha real.
-            </p>
-            {errors.accountingMonth && (
-              <p className="field-error" role="alert">
-                {errors.accountingMonth}
-              </p>
+            {useAutomaticAccountingMonth ? (
+              <>
+                <strong className="recurring-accounting-month">Se calculará automáticamente al guardar</strong>
+                <p className="accounting-month-help">Se usa la fecha real revisada y el día de corte del hogar.</p>
+              </>
+            ) : (
+              <>
+                <AccountingMonthField
+                  id="expense-accounting-month"
+                  value={accountingMonth}
+                  automaticValue={automaticAccountingMonth}
+                  labelledBy="expense-accounting-month-label"
+                  disabled={isSaving}
+                  onChange={(nextAccountingMonth) => {
+                    setAccountingMonth(nextAccountingMonth)
+                    setAccountingMonthManuallyChanged(nextAccountingMonth !== automaticAccountingMonth)
+                    clearError('accountingMonth')
+                  }}
+                  onUseAutomatic={() => {
+                    setAccountingMonth(automaticAccountingMonth)
+                    setAccountingMonthManuallyChanged(false)
+                    clearError('accountingMonth')
+                  }}
+                />
+                <p className="accounting-month-help">Se usa en totales y estadísticas; no cambia la fecha real.</p>
+              </>
             )}
+            {errors.accountingMonth && <p className="field-error" role="alert">{errors.accountingMonth}</p>}
           </div>
 
           <div className="form-divider" />
