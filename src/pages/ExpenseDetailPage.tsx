@@ -118,7 +118,6 @@ export function ExpenseDetailPage({
             <span className="expense-recurrence-mark">Recurrente</span>
           </div>
           <strong>{formatRecurringSchedule(expense.recurringExpense)}</strong>
-          <p>Prevista: {formatShortDate(expense.recurringExpense.dueDate)}</p>
           {expense.recurringExpense.deletedAt ? (
             <p className="expense-recurring-inactive">Esta recurrencia ya no está activa.</p>
           ) : (
