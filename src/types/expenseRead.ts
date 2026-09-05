@@ -1,6 +1,7 @@
 import type { ExpenseType } from './finance'
 import type { HouseholdRole } from './household'
 import type { PaymentSource } from './commonFund'
+import type { RecurringExpenseLink } from './recurringExpenses'
 
 export type ExpenseReadMember = {
   userId: string
@@ -49,6 +50,7 @@ export type ExpenseRecord = {
   updatedBy: string | null
   createdAt: string
   updatedAt: string
+  recurringExpense: RecurringExpenseLink | null
 }
 
 export type SettlementRecord = {

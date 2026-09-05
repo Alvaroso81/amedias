@@ -31,6 +31,7 @@ export type RecurringExpense = {
   note: string
   createdAt: string
   updatedAt: string
+  deletedAt: string | null
 }
 
 export type RecurringExpenseOccurrence = {
@@ -42,7 +43,28 @@ export type RecurringExpenseOccurrence = {
   createdAt: string
   resolvedAt: string | null
   resolvedBy: string | null
+  proposedDescription: string
+  proposedAmountCents: number
+  proposedCategoryId: string
+  proposedCategory: ExpenseCategory
+  proposedExpenseType: ExpenseType
+  proposedPaymentSource: PaymentSource
+  proposedPayerUserId: string | null
+  proposedSplitConfig: RecurringSplitConfig[]
+  proposedNote: string
   recurringExpense: RecurringExpense
+}
+
+export type RecurringExpenseLink = {
+  recurringExpenseId: string
+  dueDate: string
+  frequency: RecurringFrequency
+  intervalCount: number
+  anchorDay: number
+  anchorMonth: number
+  nextDueDate: string
+  isActive: boolean
+  deletedAt: string | null
 }
 
 export type RecurringExpenseInput = {

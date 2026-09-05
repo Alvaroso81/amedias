@@ -3522,6 +3522,15 @@ button:focus-visible {
   gap: 6px;
 }
 
+.recurring-row-actions--template {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.recurring-row-actions--template .recurring-delete-button {
+  grid-column: 1 / -1;
+}
+
 .recurring-row-actions button {
   min-height: 36px;
   padding: 0 10px;
@@ -3532,6 +3541,19 @@ button:focus-visible {
   color: var(--text-muted);
   border-color: var(--border);
   background: var(--surface-soft);
+}
+
+.recurring-row-actions .recurring-delete-button {
+  color: #94554e;
+  border-color: #eadbd8;
+  background: #fbf7f6;
+}
+
+.delete-dialog .delete-recurring-name {
+  display: block;
+  margin: -13px 0 22px;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
 }
 
 .recurring-row-actions button:disabled {
@@ -3592,6 +3614,65 @@ button:focus-visible {
   font-size: 0.78rem;
 }
 
+.expense-recurring-detail {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 22px;
+}
+
+.expense-recurring-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.expense-recurring-heading > div {
+  min-width: 0;
+}
+
+.expense-recurring-heading > div > span {
+  color: var(--primary);
+  font-size: 0.68rem;
+  font-weight: 740;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.expense-recurring-heading h2 {
+  margin: 3px 0 0;
+  font-size: 1.05rem;
+}
+
+.expense-recurring-detail > strong {
+  margin-top: 7px;
+  font-size: 0.86rem;
+}
+
+.expense-recurring-detail > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.expense-recurring-detail .expense-recurring-inactive {
+  color: #8c6b4a;
+  font-weight: 680;
+}
+
+.expense-recurring-detail > button {
+  min-height: 44px;
+  margin-top: 8px;
+  border: 1px solid rgba(55, 110, 90, 0.18);
+  border-radius: 12px;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  font-size: 0.78rem;
+  font-weight: 730;
+  cursor: pointer;
+}
+
 @media (max-width: 520px) {
   .recurring-template-row,
   .recurring-pending-row {
@@ -3606,6 +3687,10 @@ button:focus-visible {
   .recurring-row-actions button {
     min-width: 0;
     flex: 1 1 0;
+  }
+
+  .recurring-row-actions--template {
+    width: min(100%, 250px);
   }
 }
 
@@ -4432,6 +4517,7 @@ button:focus-visible {
 }
 
 .expense-privacy-mark,
+.expense-recurrence-mark,
 .expense-detail-type {
   display: inline-flex;
   align-items: center;
@@ -4440,6 +4526,20 @@ button:focus-visible {
   border-radius: 999px;
   color: #596d64;
   background: #edf2ef;
+  font-size: 0.62rem;
+  font-weight: 720;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.expense-recurrence-mark {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
   font-size: 0.62rem;
   font-weight: 720;
   line-height: 1.25;

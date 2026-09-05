@@ -4,6 +4,8 @@ import { ExpenseServiceError } from '../services/expenses'
 import { EditableExpenseDetails } from '../components/EditableExpenseDetails'
 import type { ExpenseRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
+import { formatShortDate } from '../utils/formatDate'
+import { formatRecurringSchedule } from '../utils/recurringExpensePresentation'
 import {
   getExpenseBalanceImpacts,
   getExpensePayerLabel,
@@ -21,6 +23,7 @@ type ExpenseDetailPageProps = {
   onUpdated: (expenseId: string) => void | Promise<void>
   onDelete: (expenseId: string) => Promise<void>
   statusMessage: string | null
+  onManageRecurringExpense: (recurringExpenseId: string) => void
 }
 
 export function ExpenseDetailPage({
@@ -35,6 +38,7 @@ export function ExpenseDetailPage({
   onUpdated,
   onDelete,
   statusMessage,
+  onManageRecurringExpense,
 }: ExpenseDetailPageProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -103,6 +107,37 @@ export function ExpenseDetailPage({
         commonFundLoading={commonFundLoading}
         onUpdated={onUpdated}
       />
+
+      {expense.recurringExpense && (
+        <section className="card expense-recurring-detail" aria-labelledby="expense-recurring-title">
+          <div className="expense-recurring-heading">
+            <div>
+              <span>Origen</span>
+              <h2 id="expense-recurring-title">Recurrente</h2>
+            </div>
+            <span className="expense-recurrence-mark">Recurrente</span>
+          </div>
+          <strong>{formatRecurringSchedule(expense.recurringExpense)}</strong>
+          <p>Prevista: {formatShortDate(expense.recurringExpense.dueDate)}</p>
+          {expense.recurringExpense.deletedAt ? (
+            <p className="expense-recurring-inactive">Esta recurrencia ya no está activa.</p>
+          ) : (
+            <>
+              {expense.recurringExpense.isActive ? (
+                <p>Próxima: {formatShortDate(expense.recurringExpense.nextDueDate)}</p>
+              ) : (
+                <p className="expense-recurring-inactive">Recurrencia pausada.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => onManageRecurringExpense(expense.recurringExpense!.recurringExpenseId)}
+              >
+                Gestionar recurrencia
+              </button>
+            </>
+          )}
+        </section>
+      )}
 
       <section className={`card balance-impact-card${expense.expenseType === 'personal' ? ' balance-impact-card--personal' : ''}`} aria-labelledby="balance-impact-title">
         <p className="card-label" id="balance-impact-title">

@@ -35,6 +35,9 @@ export function RecentExpenses({ expenses, onSelectExpense, onViewAll }: RecentE
               <span>
                 {expense.category.name}
                 <span className="expense-privacy-mark">{expense.expenseType === 'personal' ? 'Personal' : 'Común'}</span>
+                {expense.recurringExpense && (
+                  <span className="expense-recurrence-mark">Recurrente</span>
+                )}
               </span>
               <small>
                 {expense.paymentSource === 'common_fund' && <span className="fund-history-mark" aria-hidden="true">◎</span>}

@@ -75,6 +75,7 @@ type RecurringRow = {
   note: string | null
   created_at: string
   updated_at: string
+  deleted_at: string | null
 }
 
 function mapTemplate(
@@ -119,6 +120,7 @@ function mapTemplate(
     note: row.note ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
   }
 }
 
@@ -135,8 +137,9 @@ export async function getRecurringExpenses(householdId: string) {
   const [templatesResult, categoriesResult] = await Promise.all([
     supabase
       .from('recurring_expenses')
-      .select('id, household_id, created_by, description, amount_cents, category_id, expense_type, payment_source, payer_user_id, split_config, frequency, interval_count, start_date, next_due_date, end_date, is_active, note, created_at, updated_at')
+      .select('id, household_id, created_by, description, amount_cents, category_id, expense_type, payment_source, payer_user_id, split_config, frequency, interval_count, start_date, next_due_date, end_date, is_active, note, created_at, updated_at, deleted_at')
       .eq('household_id', householdId)
+      .is('deleted_at', null)
       .order('is_active', { ascending: false })
       .order('next_due_date', { ascending: true }),
     supabase
@@ -165,7 +168,7 @@ export async function getPendingOccurrences(templates: RecurringExpense[]) {
   const templatesById = new Map(templates.map((template) => [template.id, template]))
   const { data, error } = await supabase
     .from('recurring_expense_occurrences')
-    .select('id, recurring_expense_id, due_date, expense_id, status, created_at, resolved_at, resolved_by')
+    .select('id, recurring_expense_id, due_date, expense_id, status, created_at, resolved_at, resolved_by, proposed_description, proposed_amount_cents, proposed_category_id, proposed_expense_type, proposed_payment_source, proposed_payer_user_id, proposed_split_config, proposed_note')
     .in('recurring_expense_id', [...templatesById.keys()])
     .eq('status', 'pending')
     .order('due_date', { ascending: true })
@@ -174,6 +177,22 @@ export async function getPendingOccurrences(templates: RecurringExpense[]) {
   if (error) {
     throw serviceError(error, 'No hemos podido cargar los gastos pendientes.')
   }
+
+  const proposedCategoryIds = [...new Set(data.map((row) => row.proposed_category_id))]
+  const categoriesResult = proposedCategoryIds.length
+    ? await supabase
+        .from('categories')
+        .select('id, name, icon, sort_order')
+        .in('id', proposedCategoryIds)
+    : { data: [], error: null }
+
+  if (categoriesResult.error) {
+    throw serviceError(categoriesResult.error, 'No hemos podido cargar las categorías pendientes.')
+  }
+
+  const proposedCategories = new Map(
+    categoriesResult.data.map((category) => [category.id, category]),
+  )
 
   return data.flatMap((row): RecurringExpenseOccurrence[] => {
     const recurringExpense = templatesById.get(row.recurring_expense_id)
@@ -188,13 +207,34 @@ export async function getPendingOccurrences(templates: RecurringExpense[]) {
       createdAt: row.created_at,
       resolvedAt: row.resolved_at,
       resolvedBy: row.resolved_by,
+      proposedDescription: row.proposed_description,
+      proposedAmountCents: Number(row.proposed_amount_cents),
+      proposedCategoryId: row.proposed_category_id,
+      proposedCategory: {
+        id: row.proposed_category_id,
+        name: proposedCategories.get(row.proposed_category_id)?.name ?? 'Categoría no disponible',
+        icon: proposedCategories.get(row.proposed_category_id)?.icon ?? '📦',
+        sortOrder: proposedCategories.get(row.proposed_category_id)?.sort_order ?? 0,
+      },
+      proposedExpenseType:
+        row.proposed_expense_type === 'personal' ? 'personal' : 'common',
+      proposedPaymentSource:
+        row.proposed_payment_source === 'common_fund' ? 'common_fund' : 'member',
+      proposedPayerUserId: row.proposed_payer_user_id,
+      proposedSplitConfig: Array.isArray(row.proposed_split_config)
+        ? row.proposed_split_config.map((split: { user_id: string; share_percent: number | string }) => ({
+            userId: split.user_id,
+            sharePercent: Number(split.share_percent),
+          }))
+        : [],
+      proposedNote: row.proposed_note ?? '',
       recurringExpense,
     }]
   })
 }
 
 export async function createRecurringExpense(input: RecurringExpenseInput) {
-  const { data, error } = await supabase.rpc('create_recurring_expense', {
+  const { data, error } = await supabase.rpc('create_recurring_expense_v2', {
     p_household_id: input.householdId,
     p_description: input.description,
     p_amount_cents: input.amountCents,
@@ -217,7 +257,7 @@ export async function createRecurringExpense(input: RecurringExpenseInput) {
 }
 
 export async function updateRecurringExpense(input: RecurringExpenseUpdateInput) {
-  const { data, error } = await supabase.rpc('update_recurring_expense', {
+  const { data, error } = await supabase.rpc('update_recurring_expense_v2', {
     p_recurring_expense_id: input.recurringExpenseId,
     p_description: input.description,
     p_amount_cents: input.amountCents,
@@ -238,7 +278,7 @@ export async function updateRecurringExpense(input: RecurringExpenseUpdateInput)
 }
 
 export async function setRecurringExpenseActive(recurringExpenseId: string, isActive: boolean) {
-  const { data, error } = await supabase.rpc('set_recurring_expense_active', {
+  const { data, error } = await supabase.rpc('set_recurring_expense_active_v2', {
     p_recurring_expense_id: recurringExpenseId,
     p_is_active: isActive,
   })
@@ -279,6 +319,16 @@ export async function skipRecurringOccurrence(occurrenceId: string) {
   })
 
   if (error) throw serviceError(error, 'No hemos podido omitir este gasto.')
+  if (typeof data !== 'string') throw serviceError(null, 'No hemos recibido el identificador.')
+  return data
+}
+
+export async function deleteRecurringExpense(recurringExpenseId: string) {
+  const { data, error } = await supabase.rpc('delete_recurring_expense', {
+    p_recurring_expense_id: recurringExpenseId,
+  })
+
+  if (error) throw serviceError(error, 'No hemos podido eliminar el gasto recurrente.')
   if (typeof data !== 'string') throw serviceError(null, 'No hemos recibido el identificador.')
   return data
 }

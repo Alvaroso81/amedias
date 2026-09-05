@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ExpenseDataState } from '../components/ExpenseDataState'
+import { DeleteRecurringExpenseDialog } from '../components/DeleteRecurringExpenseDialog'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
 import {
   createRecurringExpense,
+  deleteRecurringExpense,
   RecurringExpenseServiceError,
   setRecurringExpenseActive,
   skipRecurringOccurrence,
@@ -37,6 +39,7 @@ type RecurringExpensesPageProps = {
   onRetry: () => void
   onChanged: () => void | Promise<unknown>
   onReviewOccurrence: (occurrence: RecurringExpenseOccurrence) => void
+  initialTemplateId: string | null
 }
 
 const frequencyLabels: Record<RecurringFrequency, string> = {
@@ -62,11 +65,15 @@ export function RecurringExpensesPage({
   onRetry,
   onChanged,
   onReviewOccurrence,
+  initialTemplateId,
 }: RecurringExpensesPageProps) {
-  const [formMode, setFormMode] = useState<'closed' | 'create' | 'edit'>('closed')
-  const [editingTemplate, setEditingTemplate] = useState<RecurringExpense | null>(null)
+  const [formMode, setFormMode] = useState<'closed' | 'create' | 'edit'>(initialTemplateId ? 'edit' : 'closed')
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(initialTemplateId)
+  const editingTemplate = recurringExpenses.find((template) => template.id === editingTemplateId) ?? null
   const [actionId, setActionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [deletingTemplate, setDeletingTemplate] = useState<RecurringExpense | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const activeTemplates = recurringExpenses.filter((template) => template.isActive)
   const pausedTemplates = recurringExpenses.filter((template) => !template.isActive)
 
@@ -88,7 +95,7 @@ export function RecurringExpensesPage({
   }
 
   const handleSkip = async (occurrence: RecurringExpenseOccurrence) => {
-    if (!window.confirm(`¿Omitir “${occurrence.recurringExpense.description}” del ${formatShortDate(occurrence.dueDate)}?`)) {
+    if (!window.confirm(`¿Omitir “${occurrence.proposedDescription}” del ${formatShortDate(occurrence.dueDate)}?`)) {
       return
     }
 
@@ -108,6 +115,26 @@ export function RecurringExpensesPage({
     }
   }
 
+  const handleDelete = async () => {
+    if (!deletingTemplate || actionId) return
+
+    setActionId(deletingTemplate.id)
+    setDeleteError(null)
+    try {
+      await deleteRecurringExpense(deletingTemplate.id)
+      await onChanged()
+      setDeletingTemplate(null)
+    } catch (deleteFailure) {
+      setDeleteError(
+        deleteFailure instanceof RecurringExpenseServiceError
+          ? deleteFailure.message
+          : 'No hemos podido eliminar el gasto recurrente.',
+      )
+    } finally {
+      setActionId(null)
+    }
+  }
+
   return (
     <div className="recurring-page">
       <header className="add-expense-header recurring-page-header">
@@ -120,7 +147,14 @@ export function RecurringExpensesPage({
         </div>
       </header>
 
-      {formMode !== 'closed' ? (
+      {formMode === 'edit' && !editingTemplate ? (
+        <ExpenseDataState
+          loading={loading}
+          title={loading ? 'Cargando recurrente' : 'No hemos encontrado este recurrente'}
+          message={error ?? 'Vuelve a la lista y prueba de nuevo.'}
+          onRetry={loading ? undefined : onRetry}
+        />
+      ) : formMode !== 'closed' ? (
         <RecurringTemplateForm
           key={editingTemplate?.id ?? 'new-recurring'}
           householdId={householdId}
@@ -129,12 +163,12 @@ export function RecurringExpensesPage({
           initialTemplate={formMode === 'edit' ? editingTemplate : null}
           onCancel={() => {
             setFormMode('closed')
-            setEditingTemplate(null)
+            setEditingTemplateId(null)
           }}
           onSaved={async () => {
             await onChanged()
             setFormMode('closed')
-            setEditingTemplate(null)
+            setEditingTemplateId(null)
           }}
         />
       ) : (
@@ -143,7 +177,7 @@ export function RecurringExpensesPage({
             className="recurring-new-button"
             type="button"
             onClick={() => {
-              setEditingTemplate(null)
+              setEditingTemplateId(null)
               setFormMode('create')
             }}
           >
@@ -171,11 +205,11 @@ export function RecurringExpensesPage({
                     {pendingOccurrences.map((occurrence) => (
                       <article className="recurring-pending-row" key={occurrence.id}>
                         <div className="recurring-item-icon" aria-hidden="true">
-                          {occurrence.recurringExpense.category.icon}
+                          {occurrence.proposedCategory.icon}
                         </div>
                         <div className="recurring-item-copy">
-                          <strong>{occurrence.recurringExpense.description}</strong>
-                          <span>{formatShortDate(occurrence.dueDate)} · {formatCurrency(occurrence.recurringExpense.amountCents / 100)}</span>
+                          <strong>{occurrence.proposedDescription}</strong>
+                          <span>{formatShortDate(occurrence.dueDate)} · {formatCurrency(occurrence.proposedAmountCents / 100)}</span>
                         </div>
                         <div className="recurring-row-actions">
                           <button type="button" onClick={() => onReviewOccurrence(occurrence)}>Revisar</button>
@@ -201,10 +235,14 @@ export function RecurringExpensesPage({
                 emptyMessage="Todavía no hay gastos recurrentes activos."
                 actionId={actionId}
                 onEdit={(template) => {
-                  setEditingTemplate(template)
+                  setEditingTemplateId(template.id)
                   setFormMode('edit')
                 }}
                 onToggle={(template) => void handleToggle(template)}
+                onDelete={(template) => {
+                  setDeleteError(null)
+                  setDeletingTemplate(template)
+                }}
               />
               {pausedTemplates.length > 0 && (
                 <TemplateSection
@@ -213,15 +251,32 @@ export function RecurringExpensesPage({
                   templates={pausedTemplates}
                   actionId={actionId}
                   onEdit={(template) => {
-                    setEditingTemplate(template)
+                    setEditingTemplateId(template.id)
                     setFormMode('edit')
                   }}
                   onToggle={(template) => void handleToggle(template)}
+                  onDelete={(template) => {
+                    setDeleteError(null)
+                    setDeletingTemplate(template)
+                  }}
                 />
               )}
             </>
           )}
         </>
+      )}
+      {deletingTemplate && (
+        <DeleteRecurringExpenseDialog
+          recurringExpense={deletingTemplate}
+          isDeleting={actionId === deletingTemplate.id}
+          error={deleteError}
+          onCancel={() => {
+            if (actionId) return
+            setDeleteError(null)
+            setDeletingTemplate(null)
+          }}
+          onConfirm={() => void handleDelete()}
+        />
       )}
     </div>
   )
@@ -235,9 +290,10 @@ type TemplateSectionProps = {
   actionId: string | null
   onEdit: (template: RecurringExpense) => void
   onToggle: (template: RecurringExpense) => void
+  onDelete: (template: RecurringExpense) => void
 }
 
-function TemplateSection({ title, eyebrow, templates, emptyMessage, actionId, onEdit, onToggle }: TemplateSectionProps) {
+function TemplateSection({ title, eyebrow, templates, emptyMessage, actionId, onEdit, onToggle, onDelete }: TemplateSectionProps) {
   return (
     <section className="card recurring-section">
       <div className="recurring-section-heading">
@@ -258,6 +314,9 @@ function TemplateSection({ title, eyebrow, templates, emptyMessage, actionId, on
                 <button type="button" onClick={() => onEdit(template)}>Editar</button>
                 <button type="button" disabled={actionId === template.id} onClick={() => onToggle(template)}>
                   {actionId === template.id ? 'Guardando…' : template.isActive ? 'Pausar' : 'Reactivar'}
+                </button>
+                <button className="recurring-delete-button" type="button" disabled={actionId === template.id} onClick={() => onDelete(template)}>
+                  Eliminar
                 </button>
               </div>
             </article>

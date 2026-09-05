@@ -314,9 +314,9 @@ export function HomePage({
           <div className="home-recurring-preview">
             {pendingRecurringOccurrences.slice(0, 2).map((occurrence) => (
               <div key={occurrence.id}>
-                <span aria-hidden="true">{occurrence.recurringExpense.category.icon}</span>
-                <strong>{occurrence.recurringExpense.description}</strong>
-                <b>{formatCurrency(occurrence.recurringExpense.amountCents / 100)}</b>
+                <span aria-hidden="true">{occurrence.proposedCategory.icon}</span>
+                <strong>{occurrence.proposedDescription}</strong>
+                <b>{formatCurrency(occurrence.proposedAmountCents / 100)}</b>
               </div>
             ))}
           </div>

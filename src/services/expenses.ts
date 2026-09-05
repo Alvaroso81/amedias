@@ -14,6 +14,20 @@ import type {
   HouseholdExpenseData,
   SettlementRecord,
 } from '../types/expenseRead'
+import type { RecurringExpenseLink } from '../types/recurringExpenses'
+
+type RecurringExpenseLinkRow = {
+  expense_id: string
+  recurring_expense_id: string
+  due_date: string
+  frequency: string
+  interval_count: number
+  anchor_day: number
+  anchor_month: number
+  next_due_date: string
+  is_active: boolean
+  deleted_at: string | null
+}
 
 const knownCreateExpenseErrors = [
   'Debes iniciar sesión para crear un gasto',
@@ -108,7 +122,7 @@ export async function loadHouseholdExpenses(
   householdId: string,
 ): Promise<HouseholdExpenseData> {
   try {
-    const [expensesResult, categoriesResult, membersResult, settlementsResult] = await Promise.all([
+    const [expensesResult, categoriesResult, membersResult, settlementsResult, recurringLinksResult] = await Promise.all([
       supabase
         .from('expenses')
         .select(
@@ -136,13 +150,17 @@ export async function loadHouseholdExpenses(
         .is('deleted_at', null)
         .order('settlement_date', { ascending: false })
         .order('created_at', { ascending: false }),
+      supabase.rpc('get_recurring_expense_links', {
+        p_household_id: householdId,
+      }),
     ])
 
     if (
       expensesResult.error ||
       categoriesResult.error ||
       membersResult.error ||
-      settlementsResult.error
+      settlementsResult.error ||
+      recurringLinksResult.error
     ) {
       throw new ExpenseServiceError('No hemos podido cargar los gastos.')
     }
@@ -202,6 +220,27 @@ export async function loadHouseholdExpenses(
     )
     const paymentsByExpense = new Map<string, ExpensePaymentDetail[]>()
     const splitsByExpense = new Map<string, ExpenseSplitDetail[]>()
+    const recurringByExpense = new Map<string, RecurringExpenseLink>(
+      ((recurringLinksResult.data ?? []) as RecurringExpenseLinkRow[]).map((link) => [
+        link.expense_id,
+        {
+          recurringExpenseId: link.recurring_expense_id,
+          dueDate: link.due_date,
+          frequency:
+            link.frequency === 'weekly'
+              ? 'weekly' as const
+              : link.frequency === 'yearly'
+                ? 'yearly' as const
+                : 'monthly' as const,
+          intervalCount: link.interval_count,
+          anchorDay: link.anchor_day,
+          anchorMonth: link.anchor_month,
+          nextDueDate: link.next_due_date,
+          isActive: link.is_active,
+          deletedAt: link.deleted_at,
+        },
+      ]),
+    )
 
     paymentsResult.data.forEach((payment) => {
       const payments = paymentsByExpense.get(payment.expense_id) ?? []
@@ -264,6 +303,7 @@ export async function loadHouseholdExpenses(
       updatedBy: expense.updated_by,
       createdAt: expense.created_at,
       updatedAt: expense.updated_at,
+      recurringExpense: recurringByExpense.get(expense.id) ?? null,
     }))
 
     const settlements: SettlementRecord[] = settlementsResult.data.map((settlement) => ({

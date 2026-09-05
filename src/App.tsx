@@ -246,6 +246,7 @@ function ExpenseApp({
   const [statisticsExpenseFilter, setStatisticsExpenseFilter] =
     useState<StatisticsExpenseFilter | null>(null)
   const [selectedOccurrence, setSelectedOccurrence] = useState<RecurringExpenseOccurrence | null>(null)
+  const [recurringTemplateToEditId, setRecurringTemplateToEditId] = useState<string | null>(null)
   const selectedExpense = expenses.find((expense) => expense.id === selectedExpenseId)
   const selectedSettlement = settlements.find(
     (settlement) => settlement.id === selectedSettlementId,
@@ -299,8 +300,9 @@ function ExpenseApp({
     setCurrentPage('settings')
   }
 
-  const goToRecurringExpenses = () => {
+  const goToRecurringExpenses = (recurringExpenseId?: string) => {
     setSelectedOccurrence(null)
+    setRecurringTemplateToEditId(recurringExpenseId ?? null)
     setCurrentPage('recurring-expenses')
   }
 
@@ -326,6 +328,10 @@ function ExpenseApp({
     setSelectedOccurrence(null)
     setCurrentPage('home')
   }, [commonFund, recurring, refresh])
+
+  const refreshRecurringManagement = useCallback(async () => {
+    await Promise.all([recurring.refresh(), refresh()])
+  }, [recurring, refresh])
 
   const reviewOccurrence = (occurrence: RecurringExpenseOccurrence) => {
     setSelectedOccurrence(occurrence)
@@ -421,7 +427,7 @@ function ExpenseApp({
         onSignOut={onSignOut}
         statusMessage={settlementNotice}
         pendingRecurringOccurrences={recurring.pendingOccurrences}
-        onViewRecurringExpenses={goToRecurringExpenses}
+        onViewRecurringExpenses={() => goToRecurringExpenses()}
       />
     )
   } else if (currentPage === 'expenses') {
@@ -479,12 +485,13 @@ function ExpenseApp({
         onCategoriesChanged={() => refresh()}
         onSignOut={onSignOut}
         onViewSettlements={goToSettlements}
-        onViewRecurringExpenses={goToRecurringExpenses}
+        onViewRecurringExpenses={() => goToRecurringExpenses()}
       />
     )
   } else if (currentPage === 'recurring-expenses') {
     pageContent = (
       <RecurringExpensesPage
+        key={recurringTemplateToEditId ?? 'recurring-management'}
         householdId={householdId}
         currentUserId={currentUserId}
         recurringExpenses={recurring.recurringExpenses}
@@ -494,23 +501,23 @@ function ExpenseApp({
         error={recurring.error}
         onBack={goToSettings}
         onRetry={() => void recurring.refresh()}
-        onChanged={recurring.refresh}
+        onChanged={refreshRecurringManagement}
         onReviewOccurrence={reviewOccurrence}
+        initialTemplateId={recurringTemplateToEditId}
       />
     )
   } else if (currentPage === 'recurring-occurrence' && selectedOccurrence) {
-    const template = selectedOccurrence.recurringExpense
     const initialDraft: ExpenseCreationDraft = {
-      description: template.description,
-      amount: template.amountCents / 100,
-      categoryId: template.categoryId,
+      description: selectedOccurrence.proposedDescription,
+      amount: selectedOccurrence.proposedAmountCents / 100,
+      categoryId: selectedOccurrence.proposedCategoryId,
       expenseDate: selectedOccurrence.dueDate,
-      expenseType: template.expenseType,
-      note: template.note,
-      paymentSource: template.paymentSource,
-      paidByUserId: template.payerUserId,
+      expenseType: selectedOccurrence.proposedExpenseType,
+      note: selectedOccurrence.proposedNote,
+      paymentSource: selectedOccurrence.proposedPaymentSource,
+      paidByUserId: selectedOccurrence.proposedPayerUserId,
       splitPercentages: Object.fromEntries(
-        template.splitConfig.map((split) => [split.userId, split.sharePercent]),
+        selectedOccurrence.proposedSplitConfig.map((split) => [split.userId, split.sharePercent]),
       ),
     }
     pageContent = (
@@ -603,6 +610,7 @@ function ExpenseApp({
         onUpdated={handleExpenseUpdated}
         onDelete={handleExpenseDeleted}
         statusMessage={expenseNotice}
+        onManageRecurringExpense={(recurringExpenseId) => goToRecurringExpenses(recurringExpenseId)}
       />
     )
   } else if (currentPage === 'settlement-detail') {
