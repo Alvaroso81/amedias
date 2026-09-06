@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
+import { SavingsSummaryCard } from '../components/SavingsSummaryCard'
+import type { SavingsGoal } from '../types/savings'
 import { BalanceCard } from '../components/BalanceCard'
 import { CommonFundCard } from '../components/CommonFundCard'
 import { CategoryList } from '../components/CategoryList'
@@ -54,6 +56,8 @@ type HomePageProps = {
   statusMessage: string | null
   pendingRecurringOccurrences: RecurringExpenseOccurrence[]
   onViewRecurringExpenses: () => void
+  savings: { goals: SavingsGoal[]; loading: boolean; error: string | null }
+  onViewSavings: () => void
 }
 
 function roundMoney(amount: number) {
@@ -88,6 +92,8 @@ export function HomePage({
   statusMessage,
   pendingRecurringOccurrences,
   onViewRecurringExpenses,
+  savings,
+  onViewSavings,
 }: HomePageProps) {
   const today = useMemo(() => getTodayIsoDate(), [])
   const persistedSummaryStartDate = commonExpensesStartDate ?? getFirstDayOfMonth(today)
@@ -299,6 +305,8 @@ export function HomePage({
           <span aria-hidden="true">✓</span> {statusMessage}
         </p>
       )}
+
+      <SavingsSummaryCard {...savings} onOpen={onViewSavings} />
 
       {pendingRecurringOccurrences.length > 0 && (
         <section className="card home-recurring-card" aria-labelledby="home-recurring-title">

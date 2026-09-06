@@ -5,7 +5,7 @@ import { BottomNavigation } from './BottomNavigation'
 type AppShellProps = {
   children: ReactNode
   currentPage: AppPage
-  onAddExpense: () => void
+  onAdd: () => void
   onGoExpenses: () => void
   onGoHome: () => void
   onGoStatistics: () => void
@@ -15,7 +15,7 @@ type AppShellProps = {
 export function AppShell({
   children,
   currentPage,
-  onAddExpense,
+  onAdd,
   onGoExpenses,
   onGoHome,
   onGoStatistics,
@@ -26,7 +26,7 @@ export function AppShell({
       <main className="app-content">{children}</main>
       <BottomNavigation
         currentPage={currentPage}
-        onAddExpense={onAddExpense}
+        onAdd={onAdd}
         onGoExpenses={onGoExpenses}
         onGoHome={onGoHome}
         onGoStatistics={onGoStatistics}

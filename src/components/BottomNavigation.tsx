@@ -9,7 +9,7 @@ const navigationItems = [
 
 type BottomNavigationProps = {
   currentPage: AppPage
-  onAddExpense: () => void
+  onAdd: () => void
   onGoExpenses: () => void
   onGoHome: () => void
   onGoStatistics: () => void
@@ -18,15 +18,15 @@ type BottomNavigationProps = {
 
 export function BottomNavigation({
   currentPage,
-  onAddExpense,
+  onAdd,
   onGoExpenses,
   onGoHome,
   onGoStatistics,
   onGoSettings,
 }: BottomNavigationProps) {
   const [home, expenses, statistics, settings] = navigationItems
-  const isAddingExpense = currentPage === 'add-expense'
-  const isHomeSection = ['home', 'common-fund'].includes(currentPage)
+  const isAddingExpense = currentPage === 'add-expense' || currentPage === 'add-savings'
+  const isHomeSection = ['home', 'common-fund', 'savings', 'savings-detail'].includes(currentPage)
   const isExpensesSection = ['expenses', 'expense-detail'].includes(currentPage)
   const isSettingsSection = ['settings', 'settlements', 'settlement-detail', 'recurring-expenses', 'recurring-occurrence'].includes(currentPage)
 
@@ -37,9 +37,10 @@ export function BottomNavigation({
       <button
         className={`add-expense-button${isAddingExpense ? ' add-expense-button--active' : ''}`}
         type="button"
-        aria-label="Añadir gasto"
+        aria-label="Añadir gasto o ahorro"
+        aria-haspopup="dialog"
         aria-current={isAddingExpense ? 'page' : undefined}
-        onClick={onAddExpense}
+        onClick={onAdd}
       >
         <span aria-hidden="true">+</span>
       </button>

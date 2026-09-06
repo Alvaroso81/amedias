@@ -10,3 +10,6 @@ export type AppPage =
   | 'settings'
   | 'recurring-expenses'
   | 'recurring-occurrence'
+  | 'savings'
+  | 'add-savings'
+  | 'savings-detail'

@@ -1,6 +1,12 @@
 import type { User } from '@supabase/supabase-js'
+import './savings.css'
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
+import { AddActionDialog } from './components/AddActionDialog'
+import { SavingsGoalForm } from './components/SavingsGoalForm'
+import { SavingsPage } from './pages/SavingsPage'
+import { SavingsDetailPage } from './pages/SavingsDetailPage'
+import { useSavings } from './hooks/useSavings'
 import { AppStatusScreen } from './components/AppStatusScreen'
 import { ExpenseDataState } from './components/ExpenseDataState'
 import { PendingInviteGate } from './components/PendingInviteGate'
@@ -235,6 +241,10 @@ function ExpenseApp({
   } = useExpenses(householdId, currentUserId)
   const commonFund = useCommonFund(householdId)
   const recurring = useRecurringExpenses(householdId)
+  const savings = useSavings(householdId, currentUserId)
+  const [isAddActionOpen, setIsAddActionOpen] = useState(false)
+  const [selectedSavingsId, setSelectedSavingsId] = useState<string | null>(null)
+  const closeAddAction = useCallback(() => setIsAddActionOpen(false), [])
   const [currentPage, setCurrentPage] = useState<AppPage>('home')
   const [statisticsInitialScope, setStatisticsInitialScope] = useState<'common' | 'personal'>('common')
   const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
@@ -395,7 +405,31 @@ function ExpenseApp({
 
   let pageContent
 
-  if (currentPage === 'home') {
+  const goToSavings = () => setCurrentPage('savings')
+  const openSavings = (id: string) => {
+    setSelectedSavingsId(id)
+    setCurrentPage('savings-detail')
+  }
+  const selectedSavings = savings.goals.find(goal => goal.id === selectedSavingsId)
+
+  if (currentPage === 'savings') {
+    pageContent = <SavingsPage goals={savings.goals} loading={savings.loading} error={savings.error}
+      onRetry={() => void savings.refresh()} onBack={goHome}
+      onCreate={() => setCurrentPage('add-savings')} onOpen={openSavings} />
+  } else if (currentPage === 'add-savings') {
+    pageContent = savings.loading || savings.error ? (
+      <ExpenseDataState loading={savings.loading} title="Nuevo ahorro" message={savings.error ?? 'Cargando miembros del hogar…'}
+        onRetry={savings.error ? () => void savings.refresh() : undefined} />
+    ) : <SavingsGoalForm householdId={householdId} currentUserId={currentUserId} members={savings.members}
+      onBack={goToSavings} onSaved={async id => { await savings.refresh(); openSavings(id) }} />
+  } else if (currentPage === 'savings-detail') {
+    pageContent = selectedSavings && !savings.error ? (
+      <SavingsDetailPage key={selectedSavings.id} goal={selectedSavings} householdId={householdId}
+        currentUserId={currentUserId} members={savings.members} onBack={goToSavings} onChanged={savings.refresh} />
+    ) : <ExpenseDataState loading={savings.loading} title="Ahorro no disponible"
+      message={savings.error ?? 'Vuelve a Ahorros para consultar tus objetivos.'}
+      onRetry={() => void savings.refresh()} />
+  } else if (currentPage === 'home') {
     pageContent = (
       <HomePage
         displayName={displayName}
@@ -427,6 +461,8 @@ function ExpenseApp({
         onSignOut={onSignOut}
         statusMessage={settlementNotice}
         pendingRecurringOccurrences={recurring.pendingOccurrences}
+        savings={savings}
+        onViewSavings={goToSavings}
         onViewRecurringExpenses={() => goToRecurringExpenses()}
       />
     )
@@ -485,6 +521,7 @@ function ExpenseApp({
         onCategoriesChanged={() => refresh()}
         onSignOut={onSignOut}
         onViewSettlements={goToSettlements}
+        onViewSavings={goToSavings}
         onViewRecurringExpenses={() => goToRecurringExpenses()}
       />
     )
@@ -651,10 +688,7 @@ function ExpenseApp({
     <>
       <AppShell
         currentPage={currentPage}
-        onAddExpense={() => {
-          setSelectedExpenseId(null)
-          setCurrentPage('add-expense')
-        }}
+        onAdd={() => setIsAddActionOpen(true)}
         onGoExpenses={goToExpenses}
         onGoHome={goHome}
         onGoStatistics={goToStatistics}
@@ -662,6 +696,10 @@ function ExpenseApp({
       >
         {pageContent}
       </AppShell>
+
+      {isAddActionOpen && <AddActionDialog onCancel={closeAddAction}
+        onExpense={() => { closeAddAction(); setSelectedExpenseId(null); setCurrentPage('add-expense') }}
+        onSavings={() => { closeAddAction(); setCurrentPage('add-savings') }} />}
 
       {settlementDialog && (settlementDialog.mode === 'create' || settlementBeingEdited) && (
         <SettlementDialog

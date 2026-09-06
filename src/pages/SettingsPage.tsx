@@ -26,6 +26,7 @@ type SettingsPageProps = {
   onSignOut: () => void
   onViewSettlements: () => void
   onViewRecurringExpenses: () => void
+  onViewSavings: () => void
   onAccountingMonthStartDayChange: (startDay: number) => Promise<void>
   onCategoriesChanged: () => void | Promise<unknown>
 }
@@ -59,6 +60,7 @@ export function SettingsPage({
   onSignOut,
   onViewSettlements,
   onViewRecurringExpenses,
+  onViewSavings,
   onAccountingMonthStartDayChange,
   onCategoriesChanged,
 }: SettingsPageProps) {
@@ -410,6 +412,14 @@ export function SettingsPage({
         householdId={householdId}
         onCategoriesChanged={onCategoriesChanged}
       />
+
+      <section className="card settings-card settings-settlements-card">
+        <div className="settings-section-heading">
+          <div><span>Objetivos</span><h2>Ahorros</h2></div>
+          <button className="settings-navigation-button" type="button" onClick={onViewSavings}>Ver ahorros <span aria-hidden="true">›</span></button>
+        </div>
+        <p>Tus ahorros personales y los objetivos que compartes.</p>
+      </section>
 
       <section className="card settings-card settings-settlements-card">
         <div className="settings-section-heading">
