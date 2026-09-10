@@ -7,6 +7,20 @@ const appBase = '/amedias/'
 // https://vite.dev/config/
 export default defineConfig({
   base: appBase,
+  // OCR .mjs outputs are outside the existing SW's *.js precache pattern.
+  // Keep OCR lazy without changing service-worker configuration.
+  build: {
+    rolldownOptions: {
+      output: {
+        chunkFileNames: (chunk) => chunk.name === 'localReceiptOcr'
+          ? 'assets/[name]-[hash].mjs' : 'assets/[name]-[hash].js',
+      },
+    },
+  },
+  worker: {
+    format: 'es',
+    rollupOptions: { output: { entryFileNames: 'assets/receipt-ocr-[hash].mjs', chunkFileNames: 'assets/ocr-[name]-[hash].mjs' } },
+  },
   plugins: [
     react(),
     VitePWA({

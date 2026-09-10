@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AccountingMonthField } from '../components/AccountingMonthField'
 import { ExpenseSavedConfirmation } from '../components/ExpenseSavedConfirmation'
+import { ReceiptScanner } from '../components/ReceiptScanner'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
 import { createExpense, ExpenseServiceError, updateExpense } from '../services/expenses'
 import type {
@@ -527,6 +528,21 @@ function ExpenseForm({
         title={title ?? (isEditing ? 'Editar gasto' : 'Nuevo gasto')}
         isEditing={isEditing}
       />
+
+      {!isEditing && !initialDraft && !createAction && (
+        <ReceiptScanner categories={categories}
+          disabled={isSaving} onResult={(result) => {
+            setDescription(result.merchant ?? '')
+            setAmount(result.totalCents === null ? '' : (result.totalCents / 100).toFixed(2))
+            setCategoryId(result.suggestedCategoryId ?? '')
+            const nextDate = result.date ?? getLocalDate()
+            setDate(nextDate)
+            if (!accountingMonthManuallyChanged) {
+              setAccountingMonth(calculateAccountingMonth(nextDate, accountingMonthStartDay))
+            }
+            clearError('description'); clearError('amount'); clearError('category'); clearError('date')
+          }} />
+      )}
 
       <form className="add-expense-form" onSubmit={handleSubmit} noValidate>
         <section className="card amount-card">
