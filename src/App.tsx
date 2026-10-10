@@ -18,6 +18,7 @@ import { useHousehold } from './hooks/useHousehold'
 import { useRecurringExpenses } from './hooks/useRecurringExpenses'
 import { AddExpensePage } from './pages/AddExpensePage'
 import { AuthPage } from './pages/AuthPage'
+import { PasswordRecoveryPage } from './pages/PasswordRecoveryPage'
 import { CommonFundPage } from './pages/CommonFundPage'
 import { ExpenseDetailPage } from './pages/ExpenseDetailPage'
 import { ExpensesPage } from './pages/ExpensesPage'
@@ -44,7 +45,7 @@ const StatisticsPage = lazy(() =>
 )
 
 function App() {
-  const { user, loading, error } = useAuth()
+  const { user, loading, error, isPasswordRecovery, recoveryInvalid, finishPasswordRecovery } = useAuth()
   const [pendingInviteToken, setPendingInviteToken] = useState(capturePendingInviteToken)
   const clearInvite = useCallback(() => {
     clearPendingInviteToken()
@@ -59,6 +60,12 @@ function App() {
         message="Estamos preparando tu espacio compartido…"
       />
     )
+  }
+
+  if (isPasswordRecovery) {
+    return <PasswordRecoveryPage email={user?.email ?? null}
+      validSession={Boolean(user) && !recoveryInvalid && !error}
+      sessionError={error} onFinish={finishPasswordRecovery} />
   }
 
   if (error) {

@@ -1,3 +1,6 @@
+import { AuthBrand } from '../components/AuthBrand'
+import { AuthField } from '../components/AuthField'
+import { PasswordResetRequest } from '../components/PasswordResetRequest'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../services/supabase'
@@ -16,6 +19,7 @@ type AuthPageProps = {
 }
 
 export function AuthPage({ pendingInviteToken, onDiscardInvite }: AuthPageProps) {
+  const [recoverPassword, setRecoverPassword] = useState(false)
   const [mode, setMode] = useState<AuthMode>('sign-in')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -127,6 +131,10 @@ export function AuthPage({ pendingInviteToken, onDiscardInvite }: AuthPageProps)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (recoverPassword) {
+    return <PasswordResetRequest initialEmail={email} onBack={() => setRecoverPassword(false)} />
   }
 
   if (confirmationEmail) {
@@ -280,66 +288,18 @@ export function AuthPage({ pendingInviteToken, onDiscardInvite }: AuthPageProps)
               {isSubmitting ? 'Un momento…' : isSignIn ? 'Entrar' : 'Crear cuenta'}
             </button>
           </form>
+          {isSignIn && (
+            <button className="auth-secondary-button password-recovery-link" type="button"
+              disabled={isSubmitting} onClick={() => {
+                setPassword('')
+                setSubmitError(null)
+                setRecoverPassword(true)
+              }}>
+              ¿Olvidaste tu contraseña?
+            </button>
+          )}
         </section>
       </div>
     </main>
-  )
-}
-
-function AuthBrand() {
-  return (
-    <header className="auth-brand">
-      <span className="auth-brand-mark" aria-hidden="true">
-        A
-      </span>
-      <h2>Amedias</h2>
-      <p>Tus gastos compartidos, en equilibrio.</p>
-    </header>
-  )
-}
-
-type AuthFieldProps = {
-  id: string
-  label: string
-  type: 'text' | 'email' | 'password'
-  value: string
-  autoComplete: string
-  inputMode?: 'email'
-  error?: string
-  onChange: (value: string) => void
-}
-
-function AuthField({
-  id,
-  label,
-  type,
-  value,
-  autoComplete,
-  inputMode,
-  error,
-  onChange,
-}: AuthFieldProps) {
-  const errorId = `${id}-error`
-
-  return (
-    <div className="auth-field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        inputMode={inputMode}
-        autoComplete={autoComplete}
-        required
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      {error && (
-        <p className="field-error" id={errorId}>
-          {error}
-        </p>
-      )}
-    </div>
   )
 }

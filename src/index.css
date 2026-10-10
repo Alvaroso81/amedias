@@ -4606,3 +4606,11 @@ button:focus-visible {
     font-size: 0.57rem;
   }
 }
+
+.password-recovery-link {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 16px;
+}
+
+.password-recovery-account { overflow-wrap: anywhere; }
