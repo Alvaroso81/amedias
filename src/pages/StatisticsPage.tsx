@@ -404,43 +404,33 @@ function SummaryTab({
   onSelectCategoryKey,
   onSelectCategory,
 }: SummaryTabProps) {
+  const variation = percentage === null
+    ? '—'
+    : `${percentage >= 0 ? '+' : '−'}${percentageFormatter.format(Math.abs(percentage))} %`
+  const variationDetail = periodMode === 'history'
+    ? 'Todo el histórico'
+    : percentage === null
+      ? 'Sin periodo anterior'
+      : `${formatSignedCurrency(difference)} · ${previousPeriodLabel}`
+
   return (
     <div className="statistics-tab-content">
-      <div className="statistics-headline-grid">
-        <section className="card statistics-total-card"><span>Total del periodo</span><strong>{formatCurrency(total)}</strong></section>
-        <section className={`card statistics-variation-card${difference > 0 ? ' statistics-comparison--up' : ''}`}>
-          <span>Variación vs periodo anterior</span>
-          <strong>{periodMode === 'history' || percentage === null ? '—' : `${percentage >= 0 ? '+' : '−'}${percentageFormatter.format(Math.abs(percentage))} %`}</strong>
-          <b>{periodMode === 'history' ? 'Todo el histórico' : formatSignedCurrency(difference)}</b>
-          <small>{periodMode === 'history' ? 'Sin periodo comparable' : previousTotal > 0 ? `Respecto a ${previousPeriodLabel}` : 'Sin gasto en el periodo anterior'}</small>
-        </section>
-        <MetricCard label="Número de gastos" value={String(expenseCount)} />
-        <MetricCard label="Ticket medio" value={formatCurrency(ticketAverage)} />
-      </div>
-      <div className="statistics-metrics-grid">
-        <MetricCard label="Media mensual" value={formatCurrency(monthlyAverage)} />
-        {largestCategory && (
-          <section className="card statistics-metric-card statistics-largest-category">
-            <span>Mayor categoría</span>
-            <strong>{largestCategory.icon} {largestCategory.name}</strong>
-            <b>{formatCurrency(largestCategory.amount)}</b>
-            <small>{percentageFormatter.format(largestCategory.percentage)} % del gasto</small>
-          </section>
-        )}
-      </div>
-
+      <section className="card statistics-total-card statistics-summary-total">
+        <span>Total del periodo</span>
+        <strong>{formatCurrency(total)}</strong>
+      </section>
       <StatisticsCategoryChart categories={categories} selectedKey={selectedCategoryKey} onSelect={onSelectCategoryKey} onViewExpenses={onSelectCategory} />
-      <EvolutionTab evolution={evolution} total={total} previousTotal={previousTotal} periodMode={periodMode} previousPeriodLabel={previousPeriodLabel} />
+      <EvolutionTab evolution={evolution} total={total} previousTotal={previousTotal} periodMode={periodMode} previousPeriodLabel={previousPeriodLabel} showComparison={false} />
+      <section className="card statistics-secondary-indicators" aria-label="Otros indicadores del periodo">
+        <div className="statistics-indicators-grid">
+          <div><span>Variación vs periodo anterior</span><strong>{variation}</strong><small>{variationDetail}</small></div>
+          <div><span>Número de gastos</span><strong>{expenseCount}</strong></div>
+          <div><span>Ticket medio</span><strong>{formatCurrency(ticketAverage)}</strong></div>
+          <div><span>Media mensual</span><strong>{formatCurrency(monthlyAverage)}</strong></div>
+          {largestCategory && <div><span>Mayor categoría</span><strong>{largestCategory.icon} {largestCategory.name}</strong></div>}
+        </div>
+      </section>
     </div>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <section className="card statistics-metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </section>
   )
 }
 
@@ -540,6 +530,7 @@ type EvolutionTabProps = {
   previousTotal: number
   periodMode: StatisticsPeriodMode
   previousPeriodLabel: string
+  showComparison?: boolean
 }
 
 function EvolutionTab({
@@ -548,6 +539,7 @@ function EvolutionTab({
   previousTotal,
   periodMode,
   previousPeriodLabel,
+  showComparison = true,
 }: EvolutionTabProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -584,7 +576,7 @@ function EvolutionTab({
         </div>
       </section>
 
-      {periodMode !== 'history' && (
+      {showComparison && periodMode !== 'history' && (
         <section className="card statistics-evolution-comparison">
           <span>Comparación con {previousPeriodLabel}</span>
           {previousTotal > 0 ? (
