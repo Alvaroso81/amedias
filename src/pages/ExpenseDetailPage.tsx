@@ -20,6 +20,7 @@ type ExpenseDetailPageProps = {
   commonFundBalance: number
   commonFundEnabled: boolean
   commonFundLoading: boolean
+  onViewBalance: () => void
   onBack: () => void
   onUpdated: (expenseId: string) => void | Promise<void>
   onDelete: (expenseId: string) => Promise<void>
@@ -35,6 +36,7 @@ export function ExpenseDetailPage({
   commonFundBalance,
   commonFundEnabled,
   commonFundLoading,
+  onViewBalance,
   onBack,
   onUpdated,
   onDelete,
@@ -171,6 +173,8 @@ export function ExpenseDetailPage({
         </p>
       </section>
 
+      {expense.expenseType === 'common' && expense.paymentSource !== 'common_fund' &&
+        <button className="auth-secondary-button" type="button" onClick={onViewBalance}>Ver balance del hogar</button>}
       <div className="expense-detail-actions">
         <button
           className="delete-expense-button"

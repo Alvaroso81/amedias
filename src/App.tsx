@@ -1,3 +1,4 @@
+import { BalanceDetailPage } from './pages/BalanceDetailPage'
 import type { User } from '@supabase/supabase-js'
 import './savings.css'
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
@@ -359,6 +360,12 @@ function ExpenseApp({
     goBack()
   }, [refresh, goBack])
 
+  const openBalance = () => navigate('balance-detail')
+  const openSettlementDialog = (direction: SettlementDirection) => {
+    setSettlementNotice(null)
+    setSettlementDialog({ mode: 'create', direction })
+  }
+
   let pageContent
 
   const goToSavings = () => navigate('savings')
@@ -418,10 +425,8 @@ function ExpenseApp({
         onViewStatistics={goToStatistics}
         onViewPersonalStatistics={goToPersonalStatistics}
         onCommonExpensesStartDateChange={onCommonExpensesStartDateChange}
-        onSettleAccounts={(direction) => {
-          setSettlementNotice(null)
-          setSettlementDialog({ mode: 'create', direction })
-        }}
+        onViewBalance={openBalance}
+        onSettleAccounts={openSettlementDialog}
         onSignOut={onSignOut}
         statusMessage={settlementNotice}
         pendingRecurringOccurrences={recurring.pendingOccurrences}
@@ -430,6 +435,10 @@ function ExpenseApp({
         onViewRecurringExpenses={() => goToRecurringExpenses()}
       />
     )
+  } else if (currentPage === 'balance-detail') {
+    pageContent = <BalanceDetailPage expenses={commonExpenses} settlements={settlements} members={members}
+      currentUserId={currentUserId} perspective={entry.params.balancePerspective} loading={loading} error={error} onRetry={() => void refresh()}
+      onSelectExpense={openExpense} onSelectSettlement={openSettlement} onSettleAccounts={openSettlementDialog} />
   } else if (currentPage === 'expenses') {
     pageContent = (
       <ExpensesPage
@@ -568,6 +577,7 @@ function ExpenseApp({
           settlements={settlements}
           loading={loading}
           error={error}
+          onViewBalance={() => navigate('balance-detail', { balancePerspective: 'household' })}
           initialScope={entry.params.statisticsScope ?? 'common'}
           onRetry={() => void refresh()}
           onSelectCategory={(filter) => {
@@ -592,6 +602,7 @@ function ExpenseApp({
     pageContent = (
       <SettlementDetailPage
         settlement={selectedSettlement}
+        currentUserId={currentUserId}
         members={members}
         statusMessage={settlementNotice}
         onBack={goBack}
@@ -616,6 +627,7 @@ function ExpenseApp({
         onUpdated={handleExpenseUpdated}
         onDelete={handleExpenseDeleted}
         statusMessage={expenseNotice}
+        onViewBalance={openBalance}
         onManageRecurringExpense={(recurringExpenseId) => goToRecurringExpenses(recurringExpenseId)}
       />
     )
@@ -653,6 +665,7 @@ function ExpenseApp({
       {settlementDialog && (settlementDialog.mode === 'create' || settlementBeingEdited) && (
         <SettlementDialog
           householdId={householdId}
+          currentUserId={currentUserId}
           members={members}
           direction={
             settlementDialog.mode === 'create' ? settlementDialog.direction : undefined

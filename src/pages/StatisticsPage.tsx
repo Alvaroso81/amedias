@@ -46,6 +46,7 @@ type StatisticsPageProps = {
   loading: boolean
   error: string | null
   initialScope?: StatisticsScope
+  onViewBalance: () => void
   onRetry: () => void
   onSelectCategory: (filter: StatisticsExpenseFilter) => void
 }
@@ -105,6 +106,7 @@ export function StatisticsPage({
   loading,
   error,
   initialScope = 'common',
+  onViewBalance,
   onRetry,
   onSelectCategory,
 }: StatisticsPageProps) {
@@ -349,6 +351,7 @@ export function StatisticsPage({
               paidBy={statistics.paidBy}
               assumedBy={statistics.assumedBy}
               balance={statistics.currentBalance}
+              onViewBalance={onViewBalance}
               settlementCount={statistics.periodSettlements.length}
               settledTotal={statistics.settledTotal}
             />
@@ -646,6 +649,7 @@ function EvolutionTab({
 }
 
 type CoupleTabProps = {
+  onViewBalance: () => void
   paidBy: MemberStatistic[]
   assumedBy: MemberStatistic[]
   balance: { debtor: ExpenseReadMember | null; creditor: ExpenseReadMember | null; amount: number }
@@ -654,6 +658,7 @@ type CoupleTabProps = {
 }
 
 function CoupleTab({
+  onViewBalance,
   paidBy,
   assumedBy,
   balance,
@@ -672,7 +677,7 @@ function CoupleTab({
       </p>
 
       <div className="statistics-pair-grid">
-        <section className="card statistics-balance-card">
+        <button type="button" onClick={onViewBalance} className="card statistics-balance-card balance-statistics-link" aria-label="Ver detalle del balance">
           <span>Balance actual del hogar</span>
           <strong>
             {balance.debtor && balance.creditor
@@ -680,8 +685,8 @@ function CoupleTab({
               : 'Estáis equilibrados'}
           </strong>
           <b>{formatCurrency(balance.amount)}</b>
-          <small>Balance histórico: pagos − repartos + liquidaciones.</small>
-        </section>
+          <small>Balance histórico: pagos − repartos + liquidaciones. Ver detalle ›</small>
+        </button>
 
         <section className="card statistics-settlements-card">
           <span>Liquidaciones del periodo</span>

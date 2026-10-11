@@ -19,6 +19,10 @@ const knownSettlementErrors = [
   'El importe supera el máximo permitido',
   'El importe no puede tener más de dos decimales',
   'La fecha es obligatoria',
+  'Solo puedes registrar pagos en los que entregas o recibes dinero',
+  'Solo quien paga o recibe puede registrar esta liquidación',
+  'No tienes acceso al hogar indicado',
+  'No tienes acceso a esta liquidación',
 ]
 
 export class SettlementServiceError extends Error {}

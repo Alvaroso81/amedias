@@ -1,3 +1,4 @@
+import { getBalanceBreakdown } from '../utils/balance'
 import { useMemo, useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
 import { SavingsSummaryCard } from '../components/SavingsSummaryCard'
@@ -51,6 +52,7 @@ type HomePageProps = {
   onViewStatistics: () => void
   onViewPersonalStatistics: () => void
   onCommonExpensesStartDateChange: (startDate: string) => Promise<void>
+  onViewBalance: () => void
   onSettleAccounts: (direction: SettlementDirection) => void
   onSignOut: () => void
   statusMessage: string | null
@@ -87,6 +89,7 @@ export function HomePage({
   onViewStatistics,
   onViewPersonalStatistics,
   onCommonExpensesStartDateChange,
+  onViewBalance,
   onSettleAccounts,
   onSignOut,
   statusMessage,
@@ -202,66 +205,8 @@ export function HomePage({
     }
   }
 
-  const balance = useMemo(() => {
-    const balances = new Map(members.map((member) => [member.userId, 0]))
-
-    commonExpenses.forEach((expense) => {
-      if (expense.paymentSource === 'common_fund') return
-
-      expense.payments.forEach((payment) => {
-        balances.set(payment.userId, (balances.get(payment.userId) ?? 0) + payment.amount)
-      })
-      expense.splits.forEach((split) => {
-        balances.set(split.userId, (balances.get(split.userId) ?? 0) - split.shareAmount)
-      })
-    })
-
-    settlements.forEach((settlement) => {
-      balances.set(
-        settlement.fromUserId,
-        (balances.get(settlement.fromUserId) ?? 0) + settlement.amount,
-      )
-      balances.set(
-        settlement.toUserId,
-        (balances.get(settlement.toUserId) ?? 0) - settlement.amount,
-      )
-    })
-
-    const memberBalances = members.map((member) => ({
-      member,
-      amount: roundMoney(balances.get(member.userId) ?? 0),
-    }))
-    const currentUserBalance = memberBalances.find(
-      ({ member }) => member.userId === currentUserId,
-    )
-
-    if (!currentUserBalance || Math.abs(currentUserBalance.amount) < 0.01) {
-      return { creditor: null, debtor: null, amount: 0, currentUserAmount: 0 }
-    }
-
-    const counterpart =
-      currentUserBalance.amount > 0
-        ? [...memberBalances]
-            .filter(({ amount }) => amount <= -0.01)
-            .sort((first, second) => first.amount - second.amount)[0]
-        : [...memberBalances]
-            .filter(({ amount }) => amount >= 0.01)
-            .sort((first, second) => second.amount - first.amount)[0]
-
-    if (!counterpart) {
-      return { creditor: null, debtor: null, amount: 0, currentUserAmount: 0 }
-    }
-
-    const creditor = currentUserBalance.amount > 0 ? currentUserBalance : counterpart
-    const debtor = currentUserBalance.amount < 0 ? currentUserBalance : counterpart
-
-    return {
-      creditor,
-      debtor,
-      amount: roundMoney(Math.min(creditor.amount, Math.abs(debtor.amount))),
-      currentUserAmount: currentUserBalance.amount,
-    }
-  }, [commonExpenses, currentUserId, members, settlements])
+  const balance = useMemo(() => getBalanceBreakdown(commonExpenses, settlements, members, currentUserId).balance,
+    [commonExpenses, currentUserId, members, settlements])
 
   const balanceStatus =
     balance.currentUserAmount >= 0.01
@@ -269,7 +214,7 @@ export function HomePage({
       : balance.currentUserAmount <= -0.01
         ? 'payable'
         : 'settled'
-  const currentUserCanSettle = balanceStatus === 'payable'
+  const currentUserCanSettle = balanceStatus !== 'settled'
 
   const categories = useMemo(() => {
     const categoryTotals = new Map<string, CategoryExpense>()
@@ -384,6 +329,7 @@ export function HomePage({
               amount={balanceStatus === 'settled' ? 0 : balance.amount}
               status={balanceStatus}
               canSettle={currentUserCanSettle}
+              onViewDetails={onViewBalance}
               onSettleAccounts={() => {
                 if (!balance.debtor || !balance.creditor) return
 

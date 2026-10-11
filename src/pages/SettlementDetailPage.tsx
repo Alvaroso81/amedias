@@ -8,6 +8,7 @@ import { formatLongDate } from '../utils/formatDate'
 import { getSettlementDirectionLabel } from '../utils/settlementPresentation'
 
 type SettlementDetailPageProps = {
+  currentUserId: string
   settlement: SettlementRecord
   members: ExpenseReadMember[]
   statusMessage: string | null
@@ -18,6 +19,7 @@ type SettlementDetailPageProps = {
 
 export function SettlementDetailPage({
   settlement,
+  currentUserId,
   members,
   statusMessage,
   onBack,
@@ -28,8 +30,10 @@ export function SettlementDetailPage({
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  const canManage = currentUserId === settlement.fromUserId || currentUserId === settlement.toUserId
+
   const handleDelete = async () => {
-    if (isDeleting) return
+    if (!canManage || isDeleting) return
 
     setIsDeleting(true)
     setDeleteError(null)
@@ -73,7 +77,7 @@ export function SettlementDetailPage({
         </section>
       )}
 
-      <div className="expense-detail-actions">
+      {canManage && <div className="expense-detail-actions">
         <button className="edit-expense-button" type="button" onClick={onEdit}>
           Editar liquidación
         </button>
@@ -87,9 +91,9 @@ export function SettlementDetailPage({
         >
           Eliminar liquidación
         </button>
-      </div>
+      </div>}
 
-      {isDeleteDialogOpen && (
+      {canManage && isDeleteDialogOpen && (
         <DeleteSettlementDialog
           settlement={settlement}
           members={members}

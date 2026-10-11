@@ -12,6 +12,7 @@ import { getSettlementMemberName } from '../utils/settlementPresentation'
 
 type SettlementDialogProps = {
   householdId: string
+  currentUserId: string
   members: ExpenseReadMember[]
   direction?: SettlementDirection
   initialSettlement?: SettlementRecord
@@ -32,6 +33,7 @@ function getLocalDate() {
 
 export function SettlementDialog({
   householdId,
+  currentUserId,
   members,
   direction,
   initialSettlement,
@@ -62,6 +64,7 @@ export function SettlementDialog({
   const pendingBalance = direction?.amount ?? 0
   const isOverpayment =
     !isEditing && Number.isFinite(numericAmount) && numericAmount > pendingBalance
+  const isReceiving = !isEditing && currentUserId === toUserId
   const fromName = getSettlementMemberName(members, fromUserId)
   const toName = getSettlementMemberName(members, toUserId)
 
@@ -109,6 +112,10 @@ export function SettlementDialog({
 
   const validate = () => {
     const nextErrors: FormErrors = {}
+    if (currentUserId !== fromUserId && currentUserId !== toUserId) {
+      setSubmitError('Solo puedes registrar pagos en los que entregas o recibes dinero.')
+      return false
+    }
 
     if (!members.some((member) => member.userId === fromUserId)) {
       nextErrors.from = 'Selecciona quién entrega el dinero'
@@ -184,9 +191,9 @@ export function SettlementDialog({
       >
         <header className="settlement-dialog-header">
           <div>
-            <span>{isEditing ? 'Liquidación' : 'Saldar cuentas'}</span>
+            <span>{isEditing ? 'Liquidación' : isReceiving ? 'Dinero recibido' : 'Dinero pagado'}</span>
             <h2 id="settlement-dialog-title">
-              {isEditing ? 'Editar liquidación' : `${fromName} → ${toName}`}
+              {isEditing ? 'Editar liquidación' : isReceiving ? `He recibido de ${fromName}` : `He pagado a ${toName}`}
             </h2>
           </div>
           <button
@@ -199,6 +206,7 @@ export function SettlementDialog({
           </button>
         </header>
 
+        {!isEditing && <p className="settlement-direction">Entrega: {fromName} · Recibe: {toName}</p>}
         {!isEditing && (
           <div className="settlement-pending-balance">
             <span>Saldo pendiente</span>

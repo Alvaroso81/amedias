@@ -4771,3 +4771,17 @@ dialog.delete-dialog { width: min(calc(100% - 40px), 390px); max-height: calc(10
 .expenses-page > .contextual-back-button,
 .statistics-page > .contextual-back-button { margin-bottom: 16px; }
 .add-expense-header:has(.contextual-back-button) { flex-wrap: wrap; }
+
+.balance-ledger { display: grid; gap: 16px; padding: 0; margin: 20px 0; list-style: none; }
+.balance-ledger-row { padding: 20px; overflow-wrap: anywhere; }
+.balance-ledger-row > time { color: var(--text-muted); font-size: .8rem; }
+.balance-record-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; padding: 10px 0; border: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.balance-record-link > span { font-weight: 700; white-space: nowrap; }
+.balance-ledger-row p { margin: 10px 0; line-height: 1.5; font-size: .85rem; }
+.balance-row-effect { color: var(--primary-dark); font-weight: 700; }
+.balance-row-impacts { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 0; list-style: none; color: var(--text-muted); font-size: .8rem; }
+.balance-running { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: .85rem; }
+.balance-running > span { color: var(--text-muted); }
+.balance-detail-help { padding: 16px 0; color: var(--text-muted); font-size: .85rem; line-height: 1.6; }
+.balance-statistics-link { width: 100%; text-align: left; cursor: pointer; }
+.settlement-direction { margin: 14px 0; color: var(--text-muted); font-size: .85rem; }

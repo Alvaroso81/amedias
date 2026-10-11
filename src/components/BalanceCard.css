@@ -38,3 +38,19 @@
 .balance-card--settled .balance-amount {
   margin-bottom: 0;
 }
+
+.balance-details-button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: center;
+  cursor: pointer;
+}
+.balance-details-button:focus-visible { outline-color: currentColor; }
+.balance-details-hint { display: block; margin: 12px 0 16px; font-size: .82rem; font-weight: 650; }
+
+.balance-details-button .balance-amount { display: block; }

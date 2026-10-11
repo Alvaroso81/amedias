@@ -1,5 +1,6 @@
 export type AppPage =
   | 'home'
+  | 'balance-detail'
   | 'expenses'
   | 'add-expense'
   | 'expense-detail'
@@ -16,6 +17,7 @@ export type AppPage =
   | 'savings-detail'
 
 export type NavigationParams = {
+  balancePerspective?: 'member' | 'household'
   expenseId?: string
   settlementId?: string
   savingsId?: string
@@ -29,7 +31,7 @@ export type NavigationParams = {
 }
 
 export const pageLabels: Record<AppPage, string> = {
-  home: 'Inicio', expenses: 'Gastos', 'add-expense': 'Nuevo gasto',
+  'balance-detail': 'Balance', home: 'Inicio', expenses: 'Gastos', 'add-expense': 'Nuevo gasto',
   'expense-detail': 'Gasto', 'common-fund': 'Fondo común',
   settlements: 'Liquidaciones', 'settlement-detail': 'Liquidación',
   statistics: 'Estadísticas', settings: 'Ajustes', categories: 'Categorías',
