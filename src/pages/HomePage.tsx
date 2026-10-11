@@ -1,3 +1,4 @@
+import { getMyExpenses, sumExpenses } from '../utils/statistics'
 import { getBalanceBreakdown } from '../utils/balance'
 import { useMemo, useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
@@ -132,19 +133,11 @@ export function HomePage({
     [currentAccountingMonth, expenses, summaryStartAccountingMonth],
   )
   const total = summaryExpenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const monthlyPersonalExpenses = useMemo(
-    () =>
-      expenses.filter(
-        (expense) =>
-          expense.expenseType === 'personal' &&
-          expense.personalOwnerId === currentUserId &&
-          expense.accountingMonth.startsWith(currentMonthKey),
-      ),
+  const monthlyMyExpenses = useMemo(
+    () => getMyExpenses(expenses, currentUserId).filter((expense) => expense.accountingMonth.startsWith(currentMonthKey)),
     [currentMonthKey, currentUserId, expenses],
   )
-  const personalTotal = roundMoney(
-    monthlyPersonalExpenses.reduce((sum, expense) => sum + expense.amount, 0),
-  )
+  const myExpensesTotal = sumExpenses(monthlyMyExpenses)
 
   const contributions = useMemo(() => {
     const paidByMember = new Map(members.map((member) => [member.userId, 0]))
@@ -291,7 +284,7 @@ export function HomePage({
       ) : (
         <>
           <div
-            className={`summary-grid${monthlyPersonalExpenses.length ? ' summary-grid--with-personal' : ''}`}
+            className="summary-grid summary-grid--with-personal"
           >
             <ExpenseSummary
               total={total}
@@ -302,13 +295,11 @@ export function HomePage({
               startDateError={summaryStartDateError}
               onStartDateChange={handleSummaryStartDateChange}
             />
-            {monthlyPersonalExpenses.length > 0 && (
-              <PersonalExpenseSummary
-                total={personalTotal}
-                expenseCount={monthlyPersonalExpenses.length}
+            <PersonalExpenseSummary
+                total={myExpensesTotal}
+                expenseCount={monthlyMyExpenses.length}
                 onViewPersonalStatistics={onViewPersonalStatistics}
-              />
-            )}
+            />
             <CommonFundCard
               {...commonFund}
               onRetry={onRetryCommonFund}

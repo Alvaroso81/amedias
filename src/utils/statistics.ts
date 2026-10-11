@@ -19,9 +19,10 @@ export type CategoryStatistic = {
   amount: number
   percentage: number
   difference: number
+  count: number
 }
 
-export type CategoryChange = Omit<CategoryStatistic, 'amount' | 'percentage'> & {
+export type CategoryChange = Omit<CategoryStatistic, 'amount' | 'percentage' | 'count'> & {
   amount: number
 }
 
@@ -63,6 +64,24 @@ export function fromCents(amount: number) {
 
 export function roundMoney(amount: number) {
   return fromCents(toCents(amount))
+}
+
+// Recorded shares already include the exact cent allocation used by the expense.
+export function getMyExpenses(expenses: ExpenseRecord[], currentUserId: string): ExpenseRecord[] {
+  return expenses.flatMap((expense) => {
+    if (expense.expenseType === 'personal') {
+      return expense.personalOwnerId === currentUserId ? [expense] : []
+    }
+    const share = expense.splits.find((split) => split.userId === currentUserId)?.shareAmount ?? 0
+    return share > 0 ? [{ ...expense, amount: roundMoney(share) }] : []
+  })
+}
+
+const categoryColors = ['#386c5b', '#a5633d', '#556caf', '#92649f', '#977521', '#357e8b', '#a34c61', '#65794b']
+export function getCategoryColor(key: string) {
+  let hash = 0
+  for (const character of key) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0
+  return categoryColors[hash % categoryColors.length]
 }
 
 function toDateKey(date: Date) {
@@ -161,6 +180,7 @@ type CategoryAccumulator = {
   name: string
   icon: string
   cents: number
+  count: number
 }
 
 function getCategoryMap(expenses: ExpenseRecord[]) {
@@ -174,6 +194,7 @@ function getCategoryMap(expenses: ExpenseRecord[]) {
       name: expense.category.name,
       icon: expense.category.icon,
       cents: (current?.cents ?? 0) + toCents(expense.amount),
+      count: (current?.count ?? 0) + 1,
     })
   })
 
@@ -198,6 +219,7 @@ export function getCategoryStatistics(
       name: category.name,
       icon: category.icon,
       amount: fromCents(category.cents),
+      count: category.count,
       percentage: totalCents ? (category.cents / totalCents) * 100 : 0,
       difference: fromCents(
         category.cents - (previousCategories.get(key)?.cents ?? 0),
@@ -327,7 +349,10 @@ export function getMonthlyEvolution(
     const historyLastMonth = [...totals.keys()].sort().at(-1)
     const endMonth =
       mode === 'history' && historyLastMonth ? monthFromKey(historyLastMonth) : anchorDate
-    months = Array.from({ length: 6 }, (_, index) => shiftMonth(endMonth, index - 5))
+    const historyFirstMonth = [...totals.keys()].sort()[0]
+    months = mode === 'history' && historyFirstMonth
+      ? enumerateMonths(monthFromKey(historyFirstMonth), endMonth).map(monthFromKey)
+      : Array.from({ length: 6 }, (_, index) => shiftMonth(endMonth, index - 5))
   }
 
   return months.map((month): MonthlyStatistic => {

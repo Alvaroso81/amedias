@@ -18,8 +18,8 @@ export function PersonalExpenseSummary({
       aria-labelledby="personal-expense-summary-title"
     >
       <div>
-        <p id="personal-expense-summary-title">Tus gastos personales</p>
-        <span>Este mes</span>
+        <p id="personal-expense-summary-title">Mis gastos</p>
+        <span>Este mes · personales + tu parte común</span>
       </div>
 
       <strong>{formatCurrency(total)}</strong>
@@ -27,7 +27,7 @@ export function PersonalExpenseSummary({
       <div className="personal-expense-card__footer">
         <span>{expenseCount} {expenseCount === 1 ? 'gasto' : 'gastos'}</span>
         <button type="button" onClick={onViewPersonalStatistics}>
-          Ver personales <span aria-hidden="true">›</span>
+          Ver mis gastos <span aria-hidden="true">›</span>
         </button>
       </div>
     </section>

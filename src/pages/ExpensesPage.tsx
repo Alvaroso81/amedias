@@ -1,3 +1,4 @@
+import { getMyExpenses, sumExpenses } from '../utils/statistics'
 import { NavigationBackButton } from '../components/NavigationBackButton'
 import { usePageState } from '../navigation/useNavigation'
 import { useMemo } from 'react'
@@ -68,34 +69,37 @@ export function ExpensesPage({
   const [draftFilters, setDraftFilters] = usePageState<ExpenseFilters>('expenses.draftFilters', {
     ...emptyExpenseFilters,
     category: initialCategoryFilter,
-    expenseType: statisticsFilter?.scope ?? 'all',
+    expenseType: statisticsFilter?.scope === 'common' ? 'common' : 'all',
   })
   const [appliedFilters, setAppliedFilters] = usePageState<ExpenseFilters>('expenses.appliedFilters', {
     ...emptyExpenseFilters,
     category: initialCategoryFilter,
-    expenseType: statisticsFilter?.scope ?? 'all',
+    expenseType: statisticsFilter?.scope === 'common' ? 'common' : 'all',
   })
+  const isMyExpenses = showStatisticsContext && statisticsFilter?.scope === 'personal'
+  const scopedExpenses = useMemo(() => isMyExpenses ? getMyExpenses(expenses, currentUserId) : expenses,
+    [expenses, currentUserId, isMyExpenses])
   const selectedMonthKey = getMonthKey(selectedMonth)
 
   const periodExpenses = useMemo(
     () =>
-      expenses.filter((expense) => {
+      scopedExpenses.filter((expense) => {
         if (periodMode === 'history') return true
         if (periodMode === 'year') {
           return expense.accountingMonth.startsWith(String(selectedMonth.getFullYear()))
         }
         return expense.accountingMonth.startsWith(selectedMonthKey)
       }),
-    [expenses, periodMode, selectedMonth, selectedMonthKey],
+    [scopedExpenses, periodMode, selectedMonth, selectedMonthKey],
   )
   const categories = useMemo(() => {
     const uniqueCategories = new Map(
-      expenses.map((expense) => [expense.category.id ?? expense.category.name, expense.category]),
+      scopedExpenses.map((expense) => [expense.category.id ?? expense.category.name, expense.category]),
     )
     return [...uniqueCategories.values()].sort((first, second) =>
       first.name.localeCompare(second.name, 'es-ES'),
     )
-  }, [expenses])
+  }, [scopedExpenses])
 
   const filteredExpenses = useMemo(() => {
     const normalizedSearch = normalizeSearchValue(search)
@@ -126,7 +130,7 @@ export function ExpensesPage({
     })
   }, [appliedFilters, currentUserId, periodExpenses, search])
 
-  const total = periodExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const total = sumExpenses(filteredExpenses)
   const activeFilterCount = [
     appliedFilters.paidBy !== 'all',
     Boolean(appliedFilters.category),
@@ -197,15 +201,15 @@ export function ExpensesPage({
       ) : (
         <>
           <section className="card period-summary-card" aria-labelledby="period-total-title">
-            <p id="period-total-title">Total del periodo</p>
+            <p id="period-total-title">{isMyExpenses ? 'Mis gastos del periodo' : 'Total del periodo'}</p>
             <strong>{formatCurrency(total)}</strong>
-            <span>{periodExpenses.length} movimientos</span>
+            <span>{filteredExpenses.length} movimientos{isMyExpenses && ' · importes según tu reparto'}</span>
           </section>
 
           {statisticsFilter && showStatisticsContext && (
             <div className="statistics-filter-context" role="status">
               <span>
-                Vista desde Estadísticas · {statisticsFilter.categoryName} · {periodLabel}
+                Vista desde Estadísticas · {isMyExpenses ? 'Mis gastos · ' : ''}{statisticsFilter.categoryName} · {periodLabel}
               </span>
               <button
                 type="button"

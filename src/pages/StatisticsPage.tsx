@@ -1,6 +1,7 @@
+import { StatisticsCategoryChart } from '../components/StatisticsCategoryChart'
 import { NavigationBackButton } from '../components/NavigationBackButton'
 import { usePageState } from '../navigation/useNavigation'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import type {
   ExpenseReadMember,
@@ -19,6 +20,7 @@ import {
   getCurrentBalance,
   getMemberStatistics,
   getMonthlyAverage,
+  getMyExpenses,
   getMonthlyEvolution,
   getPeriodComparison,
   getPaymentSourceStatistics,
@@ -116,6 +118,7 @@ export function StatisticsPage({
   )
   const [activeTab, setActiveTab] = usePageState<StatisticsTab>('statistics.activeTab', 'summary')
   const [scope, setScope] = usePageState<StatisticsScope>('statistics.scope', initialScope)
+  const [selectedCategoryKey, setSelectedCategoryKey] = usePageState<string | null>('statistics.selectedCategory', null)
   const currentAccountingDate = useMemo(
     () => getInitialMonth(accountingMonthStartDay),
     [accountingMonthStartDay],
@@ -125,7 +128,7 @@ export function StatisticsPage({
     () =>
       scope === 'common'
         ? commonExpenses
-        : personalExpenses.filter((expense) => expense.personalOwnerId === currentUserId),
+        : getMyExpenses([...commonExpenses, ...personalExpenses], currentUserId),
     [commonExpenses, currentUserId, personalExpenses, scope],
   )
   const visibleTabs = scope === 'personal' ? tabs.filter((tab) => tab.value !== 'couple') : tabs
@@ -206,7 +209,7 @@ export function StatisticsPage({
     <div className="statistics-page">
       <NavigationBackButton />
       <header className="statistics-header">
-        <p>{scope === 'common' ? 'Análisis del hogar' : 'Análisis personal'}</p>
+        <p>{scope === 'common' ? 'Análisis del hogar' : 'Personales + tu parte de los comunes'}</p>
         <h1>Estadísticas</h1>
       </header>
       <div className="statistics-scope-control" aria-label="Ámbito de estadísticas">
@@ -227,7 +230,7 @@ export function StatisticsPage({
             if (activeTab === 'couple') setActiveTab('summary')
           }}
         >
-          Personales
+          Mis gastos
         </button>
       </div>
 
@@ -319,8 +322,11 @@ export function StatisticsPage({
               ticketAverage={ticketAverage}
               monthlyAverage={statistics.monthlyAverage}
               largestCategory={largestCategory}
-              categories={statistics.categories.slice(0, 3)}
+              evolution={statistics.evolution}
+              categories={statistics.categories}
               onSelectCategory={handleCategoryClick}
+              selectedCategoryKey={selectedCategoryKey}
+              onSelectCategoryKey={setSelectedCategoryKey}
             />
           )}
 
@@ -328,11 +334,12 @@ export function StatisticsPage({
             <CategoriesTab
               categories={statistics.categories}
               periodMode={periodMode}
-              previousPeriodLabel={previousPeriodLabel}
               greatestRise={statistics.greatestRise}
               greatestDrop={statistics.greatestDrop}
               descriptions={statistics.topDescriptions}
               onSelectCategory={handleCategoryClick}
+              selectedCategoryKey={selectedCategoryKey}
+              onSelectCategoryKey={setSelectedCategoryKey}
             />
           )}
 
@@ -374,6 +381,9 @@ type SummaryTabProps = {
   monthlyAverage: number
   largestCategory?: CategoryStatistic
   categories: CategoryStatistic[]
+  selectedCategoryKey: string | null
+  onSelectCategoryKey: (key: string) => void
+  evolution: EvolutionTabProps['evolution']
   onSelectCategory: (category: CategoryStatistic) => void
 }
 
@@ -389,35 +399,25 @@ function SummaryTab({
   monthlyAverage,
   largestCategory,
   categories,
+  evolution,
+  selectedCategoryKey,
+  onSelectCategoryKey,
   onSelectCategory,
 }: SummaryTabProps) {
   return (
     <div className="statistics-tab-content">
-      <section className="card statistics-total-card">
-        <span>Gastado</span>
-        <strong>{formatCurrency(total)}</strong>
-        {periodMode !== 'history' && (
-          <div className={`statistics-comparison${difference > 0 ? ' statistics-comparison--up' : ''}`}>
-            {previousTotal > 0 ? (
-              <>
-                <b>{formatSignedCurrency(difference)}</b>
-                <b>
-                  {percentage === null
-                    ? ''
-                    : `${percentage >= 0 ? '+' : '−'}${percentageFormatter.format(Math.abs(percentage))} %`}
-                </b>
-                <span>respecto a {previousPeriodLabel}</span>
-              </>
-            ) : (
-              <span>Sin gasto en el periodo anterior</span>
-            )}
-          </div>
-        )}
-      </section>
-
-      <div className="statistics-metrics-grid">
+      <div className="statistics-headline-grid">
+        <section className="card statistics-total-card"><span>Total del periodo</span><strong>{formatCurrency(total)}</strong></section>
+        <section className={`card statistics-variation-card${difference > 0 ? ' statistics-comparison--up' : ''}`}>
+          <span>Variación vs periodo anterior</span>
+          <strong>{periodMode === 'history' || percentage === null ? '—' : `${percentage >= 0 ? '+' : '−'}${percentageFormatter.format(Math.abs(percentage))} %`}</strong>
+          <b>{periodMode === 'history' ? 'Todo el histórico' : formatSignedCurrency(difference)}</b>
+          <small>{periodMode === 'history' ? 'Sin periodo comparable' : previousTotal > 0 ? `Respecto a ${previousPeriodLabel}` : 'Sin gasto en el periodo anterior'}</small>
+        </section>
         <MetricCard label="Número de gastos" value={String(expenseCount)} />
         <MetricCard label="Ticket medio" value={formatCurrency(ticketAverage)} />
+      </div>
+      <div className="statistics-metrics-grid">
         <MetricCard label="Media mensual" value={formatCurrency(monthlyAverage)} />
         {largestCategory && (
           <section className="card statistics-metric-card statistics-largest-category">
@@ -429,15 +429,8 @@ function SummaryTab({
         )}
       </div>
 
-      <section className="card statistics-section-card">
-        <div className="statistics-section-heading">
-          <div>
-            <span>Distribución</span>
-            <h2>Principales categorías</h2>
-          </div>
-        </div>
-        <CategoryRows categories={categories} onSelectCategory={onSelectCategory} />
-      </section>
+      <StatisticsCategoryChart categories={categories} selectedKey={selectedCategoryKey} onSelect={onSelectCategoryKey} onViewExpenses={onSelectCategory} />
+      <EvolutionTab evolution={evolution} total={total} previousTotal={previousTotal} periodMode={periodMode} previousPeriodLabel={previousPeriodLabel} />
     </div>
   )
 }
@@ -454,37 +447,27 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 type CategoriesTabProps = {
   categories: CategoryStatistic[]
   periodMode: StatisticsPeriodMode
-  previousPeriodLabel: string
   greatestRise?: { icon: string; name: string; amount: number }
   greatestDrop?: { icon: string; name: string; amount: number }
   descriptions: { key: string; description: string; count: number; amount: number }[]
+  selectedCategoryKey: string | null
+  onSelectCategoryKey: (key: string) => void
   onSelectCategory: (category: CategoryStatistic) => void
 }
 
 function CategoriesTab({
   categories,
   periodMode,
-  previousPeriodLabel,
   greatestRise,
   greatestDrop,
   descriptions,
+  selectedCategoryKey,
+  onSelectCategoryKey,
   onSelectCategory,
 }: CategoriesTabProps) {
   return (
     <div className="statistics-tab-content">
-      <section className="card statistics-section-card">
-        <div className="statistics-section-heading">
-          <div>
-            <span>Detalle completo</span>
-            <h2>Gastos por categoría</h2>
-          </div>
-        </div>
-        <CategoryRows
-          categories={categories}
-          previousPeriodLabel={periodMode === 'history' ? undefined : previousPeriodLabel}
-          onSelectCategory={onSelectCategory}
-        />
-      </section>
+      <StatisticsCategoryChart categories={categories} selectedKey={selectedCategoryKey} onSelect={onSelectCategoryKey} onViewExpenses={onSelectCategory} />
 
       {periodMode !== 'history' && (greatestRise || greatestDrop) && (
         <div className="statistics-change-grid">
@@ -551,42 +534,6 @@ function ChangeCard({
   )
 }
 
-function CategoryRows({
-  categories,
-  previousPeriodLabel,
-  onSelectCategory,
-}: {
-  categories: CategoryStatistic[]
-  previousPeriodLabel?: string
-  onSelectCategory: (category: CategoryStatistic) => void
-}) {
-  return (
-    <div className="statistics-category-list">
-      {categories.map((category) => (
-        <button type="button" key={category.key} onClick={() => onSelectCategory(category)}>
-          <span className="statistics-category-icon" aria-hidden="true">{category.icon}</span>
-          <span className="statistics-category-copy">
-            <span>
-              <strong>{category.name}</strong>
-              <b>{formatCurrency(category.amount)}</b>
-            </span>
-            <span className="statistics-progress" aria-hidden="true">
-              <span style={{ width: `${Math.min(100, category.percentage)}%` }} />
-            </span>
-            <small>
-              {percentageFormatter.format(category.percentage)} %
-              {previousPeriodLabel
-                ? ` · ${formatSignedCurrency(category.difference)} respecto a ${previousPeriodLabel}`
-                : ''}
-            </small>
-          </span>
-          <span className="expense-chevron" aria-hidden="true">›</span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
 type EvolutionTabProps = {
   evolution: { key: string; label: string; amount: number }[]
   total: number
@@ -602,6 +549,18 @@ function EvolutionTab({
   periodMode,
   previousPeriodLabel,
 }: EvolutionTabProps) {
+  const chartRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const chart = chartRef.current
+    const lastActiveIndex = evolution.findLastIndex((month) => month.amount > 0)
+    const lastActive = chart?.children[lastActiveIndex]
+    if (!chart || !lastActive) return
+    const revealLatest = () => { chart.scrollLeft += lastActive.getBoundingClientRect().right - chart.getBoundingClientRect().right }
+    revealLatest()
+    const observer = new ResizeObserver(revealLatest)
+    observer.observe(chart)
+    return () => observer.disconnect()
+  }, [evolution])
   const maximum = Math.max(...evolution.map((month) => month.amount), 1)
   const comparison = getPeriodComparison(total, previousTotal)
 
@@ -610,18 +569,16 @@ function EvolutionTab({
       <section className="card statistics-section-card">
         <div className="statistics-section-heading">
           <div>
-            <span>{periodMode === 'year' ? 'Año seleccionado' : 'Meses recientes'}</span>
+            <span>{periodMode === 'year' ? 'Año seleccionado' : periodMode === 'history' ? 'Todo el histórico' : 'Últimos seis meses'}</span>
             <h2>Evolución</h2>
           </div>
         </div>
-        <div className="statistics-evolution-chart" aria-label="Evolución mensual del gasto">
+        <div ref={chartRef} className="statistics-month-bars" tabIndex={0} aria-label="Evolución mensual del gasto">
           {evolution.map((month) => (
-            <div key={month.key}>
-              <span>{month.label}</span>
-              <span className="statistics-evolution-track" aria-hidden="true">
-                <span style={{ width: `${(month.amount / maximum) * 100}%` }} />
-              </span>
+            <div key={month.key} title={`${month.key}: ${formatCurrency(month.amount)}`}>
               <strong>{formatCurrency(month.amount)}</strong>
+              <span className="statistics-month-track" aria-hidden="true"><span style={{ height: `${(month.amount / maximum) * 100}%` }} /></span>
+              <span>{month.label}</span><small>{month.key.slice(0, 4)}</small>
             </div>
           ))}
         </div>
