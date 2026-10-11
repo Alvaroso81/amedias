@@ -1,6 +1,6 @@
+import { usePageState } from '../navigation/useNavigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { CategorySettings } from '../components/CategorySettings'
 import { PasswordChangeForm } from '../components/PasswordChangeForm'
 import {
   createHouseholdInvite,
@@ -28,7 +28,7 @@ type SettingsPageProps = {
   onViewRecurringExpenses: () => void
   onViewSavings: () => void
   onAccountingMonthStartDayChange: (startDay: number) => Promise<void>
-  onCategoriesChanged: () => void | Promise<unknown>
+  onViewCategories: () => void
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -62,14 +62,14 @@ export function SettingsPage({
   onViewRecurringExpenses,
   onViewSavings,
   onAccountingMonthStartDayChange,
-  onCategoriesChanged,
+  onViewCategories,
 }: SettingsPageProps) {
   const requestId = useRef(0)
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([])
   const [invitations, setInvitations] = useState<HouseholdInvite[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [isInviteFormOpen, setIsInviteFormOpen] = useState(false)
+  const [isInviteFormOpen, setIsInviteFormOpen] = usePageState('settings.inviteOpen', false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteEmailError, setInviteEmailError] = useState<string | null>(null)
   const [inviteSubmitError, setInviteSubmitError] = useState<string | null>(null)
@@ -77,7 +77,7 @@ export function SettingsPage({
   const [generatedLink, setGeneratedLink] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
-  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = usePageState('settings.passwordOpen', false)
   const [passwordNotice, setPasswordNotice] = useState<string | null>(null)
   const [isSavingAccountingMonth, setIsSavingAccountingMonth] = useState(false)
   const [accountingMonthError, setAccountingMonthError] = useState<string | null>(null)
@@ -408,10 +408,12 @@ export function SettingsPage({
         )}
       </section>
 
-      <CategorySettings
-        householdId={householdId}
-        onCategoriesChanged={onCategoriesChanged}
-      />
+      <section className="card settings-card">
+        <div className="settings-section-heading"><div><span>Organización</span><h2>Categorías</h2></div></div>
+        <button className="settings-navigation-button" type="button" onClick={onViewCategories}>
+          Gestionar categorías <span aria-hidden="true">›</span>
+        </button>
+      </section>
 
       <section className="card settings-card settings-settlements-card">
         <div className="settings-section-heading">

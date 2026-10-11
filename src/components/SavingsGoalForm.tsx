@@ -1,3 +1,5 @@
+import { NavigationBackButton } from './NavigationBackButton'
+import { usePageState } from '../navigation/useNavigation'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { SavingsGoal, SavingsMember } from '../types/savings'
@@ -8,14 +10,14 @@ export function SavingsGoalForm({ householdId, currentUserId, members, goal, onB
   householdId: string; currentUserId: string; members: SavingsMember[]; goal?: SavingsGoal
   onBack: () => void; onSaved: (id: string) => Promise<void>
 }) {
-  const [name, setName] = useState(goal?.name ?? '')
-  const [type, setType] = useState<'personal' | 'shared'>(goal?.type ?? 'personal')
-  const [target, setTarget] = useState(goal?.targetAmountCents ? savingsCentsInput(goal.targetAmountCents) : '')
-  const [date, setDate] = useState(goal?.targetDate ?? '')
-  const [percentages, setPercentages] = useState<Record<string, string>>(() =>
+  const [name, setName] = usePageState('savingsForm.name', goal?.name ?? '')
+  const [type, setType] = usePageState<'personal' | 'shared'>('savingsForm.type', goal?.type ?? 'personal')
+  const [target, setTarget] = usePageState('savingsForm.target', goal?.targetAmountCents ? savingsCentsInput(goal.targetAmountCents) : '')
+  const [date, setDate] = usePageState('savingsForm.date', goal?.targetDate ?? '')
+  const [percentages, setPercentages] = usePageState<Record<string, string>>('savingsForm.percentages', () =>
     Object.fromEntries(goal ? goal.participants.map(p => [p.userId, String(p.percentage)]) :
       members.map((m, i) => [m.userId, String(Math.floor(100 / members.length) + (i < 100 % members.length ? 1 : 0))])))
-  const [selected, setSelected] = useState<string[]>(goal ? goal.participants.map(p => p.userId) : members.map(m => m.userId))
+  const [selected, setSelected] = usePageState<string[]>('savingsForm.selected', goal ? goal.participants.map(p => p.userId) : members.map(m => m.userId))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const locked = Boolean(goal?.movements.length)
@@ -41,7 +43,7 @@ export function SavingsGoalForm({ householdId, currentUserId, members, goal, onB
     finally { setSaving(false) }
   }
   return <div className="savings-page">
-    <header className="add-expense-header"><button className="back-button" type="button" onClick={onBack} disabled={saving} aria-label="Volver">←</button><h1>{goal ? 'Editar ahorro' : 'Nuevo ahorro'}</h1></header>
+    <header className="add-expense-header"><NavigationBackButton onBack={onBack} disabled={saving} /><h1>{goal ? 'Editar ahorro' : 'Nuevo ahorro'}</h1></header>
     <form className="card savings-form" onSubmit={event => void submit(event)}>
       <fieldset disabled={saving}>
         <label>Nombre<input required value={name} onChange={e => setName(e.target.value)} autoComplete="off" placeholder="Viaje a Japón" /></label>

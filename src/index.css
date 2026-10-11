@@ -4755,3 +4755,19 @@ dialog.delete-dialog { width: min(calc(100% - 40px), 390px); max-height: calc(10
   outline: 2px solid var(--primary-dark);
   outline-offset: 2px;
 }
+
+.contextual-back-button {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  height: auto;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: .82rem;
+  display: inline-flex;
+  align-items: center;
+}
+.expenses-page > .contextual-back-button,
+.statistics-page > .contextual-back-button { margin-bottom: 16px; }
+.add-expense-header:has(.contextual-back-button) { flex-wrap: wrap; }

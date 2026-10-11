@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { useState } from 'react'
 import { DeleteSettlementDialog } from '../components/DeleteSettlementDialog'
 import { SettlementServiceError } from '../services/settlements'
@@ -48,14 +49,7 @@ export function SettlementDetailPage({
   return (
     <div className="settlement-detail-page">
       <header className="add-expense-header detail-page-header">
-        <button
-          className="back-button"
-          type="button"
-          onClick={onBack}
-          aria-label="Volver a Liquidaciones"
-        >
-          <span aria-hidden="true">←</span>
-        </button>
+        <NavigationBackButton onBack={onBack} />
         <h1>Liquidación</h1>
       </header>
 

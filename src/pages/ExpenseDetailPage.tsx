@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { useState } from 'react'
 import { DeleteExpenseDialog } from '../components/DeleteExpenseDialog'
 import { ExpenseServiceError } from '../services/expenses'
@@ -73,9 +74,7 @@ export function ExpenseDetailPage({
   return (
     <div className="expense-detail-page">
       <header className="add-expense-header detail-page-header">
-        <button className="back-button" type="button" onClick={onBack} disabled={isEditing} aria-label="Volver a Gastos">
-          <span aria-hidden="true">←</span>
-        </button>
+        <NavigationBackButton onBack={onBack} disabled={isEditing} />
         <h1>Detalle del gasto</h1>
       </header>
 
@@ -188,7 +187,7 @@ export function ExpenseDetailPage({
 
       {!isEditing && (
         <div className="expense-form-actions expense-form-actions--single" role="group" aria-label="Acciones del gasto">
-          <button className="expense-cancel-button" type="button" onClick={onBack}>Volver a Gastos</button>
+          <NavigationBackButton onBack={onBack} className="expense-cancel-button contextual-back-button" />
         </div>
       )}
 

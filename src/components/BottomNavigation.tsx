@@ -28,7 +28,7 @@ export function BottomNavigation({
   const isAddingExpense = currentPage === 'add-expense' || currentPage === 'add-savings'
   const isHomeSection = ['home', 'common-fund', 'savings', 'savings-detail'].includes(currentPage)
   const isExpensesSection = ['expenses', 'expense-detail'].includes(currentPage)
-  const isSettingsSection = ['settings', 'settlements', 'settlement-detail', 'recurring-expenses', 'recurring-occurrence'].includes(currentPage)
+  const isSettingsSection = ['settings', 'categories', 'settlements', 'settlement-detail', 'recurring-expenses', 'recurring-occurrence'].includes(currentPage)
 
   // Expense screens provide their own contextual actions instead of global navigation.
   if (['add-expense', 'recurring-occurrence', 'expense-detail'].includes(currentPage)) return null

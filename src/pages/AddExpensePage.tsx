@@ -1,3 +1,5 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
+import { usePageState } from '../navigation/useNavigation'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AccountingMonthField } from '../components/AccountingMonthField'
@@ -255,31 +257,31 @@ function ExpenseForm({
     members.find((member) => member.userId === currentUserId)?.userId ??
     members[0]?.userId ??
     ''
-  const [amount, setAmount] = useState(() =>
+  const [amount, setAmount] = usePageState('expenseForm.amount', () =>
     initialExpense ? String(initialExpense.amount) : initialDraft ? String(initialDraft.amount) : '',
   )
-  const [description, setDescription] = useState(initialExpense?.description ?? initialDraft?.description ?? '')
-  const [categoryId, setCategoryId] = useState(initialExpense?.categoryId ?? initialDraft?.categoryId ?? '')
-  const [paidByUserId, setPaidByUserId] = useState(defaultPayerId)
-  const [paymentSource, setPaymentSource] = useState<PaymentSource>(
+  const [description, setDescription] = usePageState('expenseForm.description', initialExpense?.description ?? initialDraft?.description ?? '')
+  const [categoryId, setCategoryId] = usePageState('expenseForm.categoryId', initialExpense?.categoryId ?? initialDraft?.categoryId ?? '')
+  const [paidByUserId, setPaidByUserId] = usePageState('expenseForm.paidByUserId', defaultPayerId)
+  const [paymentSource, setPaymentSource] = usePageState<PaymentSource>('expenseForm.paymentSource',
     initialExpense?.paymentSource ?? initialDraft?.paymentSource ?? 'member',
   )
-  const [split, setSplit] = useState<SplitValues>(() =>
+  const [split, setSplit] = usePageState<SplitValues>('expenseForm.split', () =>
     initialDraft
       ? Object.fromEntries(members.map((member) => [member.userId, String(initialDraft.splitPercentages[member.userId] ?? 0)]))
       : getInitialSplits(members, initialExpense),
   )
-  const [date, setDate] = useState(initialDate)
-  const [accountingMonth, setAccountingMonth] = useState(
+  const [date, setDate] = usePageState('expenseForm.date', initialDate)
+  const [accountingMonth, setAccountingMonth] = usePageState('expenseForm.accountingMonth',
     initialExpense?.accountingMonth ?? initialAutomaticAccountingMonth,
   )
-  const [accountingMonthManuallyChanged, setAccountingMonthManuallyChanged] = useState(
+  const [accountingMonthManuallyChanged, setAccountingMonthManuallyChanged] = usePageState('expenseForm.accountingMonthManuallyChanged',
     Boolean(
       initialExpense &&
       initialExpense.accountingMonth !== initialAutomaticAccountingMonth
     ),
   )
-  const [note, setNote] = useState(initialExpense?.note ?? initialDraft?.note ?? '')
+  const [note, setNote] = usePageState('expenseForm.note', initialExpense?.note ?? initialDraft?.note ?? '')
   const formRef = useRef<HTMLFormElement>(null)
   const submitErrorRef = useRef<HTMLParagraphElement>(null)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -961,18 +963,10 @@ type ExpensePageHeaderProps = {
   disabled?: boolean
 }
 
-function ExpensePageHeader({ title, onBack, isEditing = false, disabled = false }: ExpensePageHeaderProps) {
+function ExpensePageHeader({ title, onBack, disabled = false }: ExpensePageHeaderProps) {
   return (
     <header className="add-expense-header">
-      <button
-        className="back-button"
-        type="button"
-        onClick={onBack}
-        disabled={disabled}
-        aria-label={isEditing ? 'Volver al detalle del gasto' : 'Volver a Inicio'}
-      >
-        <span aria-hidden="true">←</span>
-      </button>
+      <NavigationBackButton onBack={onBack} disabled={disabled} />
       <h1>{title}</h1>
     </header>
   )

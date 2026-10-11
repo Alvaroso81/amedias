@@ -34,8 +34,9 @@ import { supabase } from './services/supabase'
 import { confirmRecurringOccurrence } from './services/recurringExpenses'
 import type { ExpenseCreationDraft } from './types/expenseCreation'
 import type { HouseholdRole } from './types/household'
-import type { StatisticsExpenseFilter } from './types/expenseFilters'
-import type { AppPage } from './types/navigation'
+import { NavigationContext, useNavigation } from './navigation/useNavigation'
+import { NavigationBackButton } from './components/NavigationBackButton'
+import { CategorySettings } from './components/CategorySettings'
 import type { SettlementDirection } from './types/settlement'
 import type { RecurringExpenseOccurrence } from './types/recurringExpenses'
 import { capturePendingInviteToken, clearPendingInviteToken } from './utils/pendingInvite'
@@ -169,6 +170,7 @@ function AuthenticatedApp({ user, pendingInviteToken, onClearInvite }: Authentic
   } else {
     authenticatedContent = (
       <ExpenseApp
+        key={`${household.id}:${user.id}`}
         displayName={profile?.displayName ?? 'Usuario'}
         email={user.email ?? ''}
         householdId={household.id}
@@ -250,27 +252,27 @@ function ExpenseApp({
   const recurring = useRecurringExpenses(householdId)
   const savings = useSavings(householdId, currentUserId)
   const [isAddActionOpen, setIsAddActionOpen] = useState(false)
-  const [selectedSavingsId, setSelectedSavingsId] = useState<string | null>(null)
   const closeAddAction = useCallback(() => setIsAddActionOpen(false), [])
-  const [currentPage, setCurrentPage] = useState<AppPage>('home')
-  const [statisticsInitialScope, setStatisticsInitialScope] = useState<'common' | 'personal'>('common')
-  const [commonFundInitialDialog, setCommonFundInitialDialog] = useState<'top-up' | undefined>()
-  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null)
+  const navigationContext = useNavigation()
+  const { navigation, entry } = navigationContext
+  const { navigate } = navigation
+  const goBack = useCallback(() => {
+    // A delayed save must not navigate away from a newer screen.
+    if (navigation.getSnapshot().id === entry.id) navigation.goBack()
+  }, [navigation, entry.id])
+  const currentPage = entry.page
   const [expenseNotice, setExpenseNotice] = useState<string | null>(null)
-  const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null)
   const [settlementNotice, setSettlementNotice] = useState<string | null>(null)
   const [settlementDialog, setSettlementDialog] = useState<SettlementDialogState | null>(null)
-  const [statisticsExpenseFilter, setStatisticsExpenseFilter] =
-    useState<StatisticsExpenseFilter | null>(null)
-  const [selectedOccurrence, setSelectedOccurrence] = useState<RecurringExpenseOccurrence | null>(null)
-  const [recurringTemplateToEditId, setRecurringTemplateToEditId] = useState<string | null>(null)
-  const selectedExpense = expenses.find((expense) => expense.id === selectedExpenseId)
-  const selectedSettlement = settlements.find(
-    (settlement) => settlement.id === selectedSettlementId,
-  )
-  const expensesPageKey = statisticsExpenseFilter
-    ? `${statisticsExpenseFilter.scope}-${statisticsExpenseFilter.periodMode}-${statisticsExpenseFilter.anchorDate}-${statisticsExpenseFilter.categoryId ?? statisticsExpenseFilter.categoryName}`
-    : 'expenses-standard'
+  const selectedExpense = expenses.find((expense) => expense.id === entry.params.expenseId)
+  const selectedSettlement = settlements.find((settlement) => settlement.id === entry.params.settlementId)
+  const selectedOccurrence = recurring.pendingOccurrences.find((occurrence) => occurrence.id === entry.params.occurrenceId)
+  const statisticsExpenseFilter = entry.params.statisticsFilter ?? null
+
+  useEffect(() => navigation.subscribe(() => {
+    closeAddAction()
+    setSettlementDialog(null)
+  }), [navigation, closeAddAction])
 
   useEffect(() => {
     if (!expenseNotice) return
@@ -288,154 +290,109 @@ function ExpenseApp({
     return () => window.clearTimeout(noticeTimer)
   }, [settlementNotice])
 
-  const goHome = () => {
-    setExpenseNotice(null)
-    setSettlementNotice(null)
-    setCurrentPage('home')
-  }
-  const goToExpenses = () => {
-    setExpenseNotice(null)
-    setSelectedExpenseId(null)
-    setStatisticsExpenseFilter(null)
-    setCurrentPage('expenses')
-  }
-  const goToStatistics = () => {
-    setExpenseNotice(null)
-    setSettlementNotice(null)
-    setStatisticsInitialScope('common')
-    setCurrentPage('statistics')
-  }
-  const goToPersonalStatistics = () => {
-    setExpenseNotice(null)
-    setSettlementNotice(null)
-    setStatisticsInitialScope('personal')
-    setCurrentPage('statistics')
-  }
-  const goToSettings = () => {
-    setExpenseNotice(null)
-    setSettlementNotice(null)
-    setCurrentPage('settings')
-  }
-
-  const goToRecurringExpenses = (recurringExpenseId?: string) => {
-    setSelectedOccurrence(null)
-    setRecurringTemplateToEditId(recurringExpenseId ?? null)
-    setCurrentPage('recurring-expenses')
-  }
-
-  const goToCommonFund = (dialog?: 'top-up') => {
-    setCommonFundInitialDialog(dialog)
-    setCurrentPage('common-fund')
-  }
-
-  const goToSettlements = () => {
-    setSettlementNotice(null)
-    setSelectedSettlementId(null)
-    setCurrentPage('settlements')
-  }
+  const goHome = () => navigate('home', {}, { root: true })
+  const goToExpenses = () => navigate('expenses')
+  const goToStatistics = () => navigate('statistics')
+  const goToPersonalStatistics = () => navigate('statistics', { statisticsScope: 'personal' })
+  const goToSettings = () => navigate('settings', {}, { root: true })
+  const goToRecurringExpenses = (templateId?: string) =>
+    navigate('recurring-expenses', templateId ? { templateId, recurringMode: 'edit' } : {})
+  const goToCommonFund = (commonFundDialog?: 'top-up') => navigate('common-fund', { commonFundDialog })
+  const goToSettlements = () => navigate('settlements')
 
   const handleExpenseCreated = useCallback(async () => {
     await Promise.all([refresh(), commonFund.refresh()])
-    setSelectedExpenseId(null)
-    setCurrentPage('home')
-  }, [commonFund, refresh])
+    goBack()
+  }, [commonFund, refresh, goBack])
 
   const handleRecurringExpenseCreated = useCallback(async () => {
     await Promise.all([refresh(), commonFund.refresh(), recurring.refresh()])
-    setSelectedOccurrence(null)
-    setCurrentPage('home')
-  }, [commonFund, recurring, refresh])
+    goBack()
+  }, [commonFund, recurring, refresh, goBack])
 
   const refreshRecurringManagement = useCallback(async () => {
     await Promise.all([recurring.refresh(), refresh()])
   }, [recurring, refresh])
 
-  const reviewOccurrence = (occurrence: RecurringExpenseOccurrence) => {
-    setSelectedOccurrence(occurrence)
-    setCurrentPage('recurring-occurrence')
-  }
+  const reviewOccurrence = (occurrence: RecurringExpenseOccurrence) =>
+    navigate('recurring-occurrence', { occurrenceId: occurrence.id })
 
   const openExpense = (expenseId: string) => {
     setExpenseNotice(null)
-    setSelectedExpenseId(expenseId)
-    setCurrentPage('expense-detail')
+    navigate('expense-detail', { expenseId })
   }
 
-  const handleExpenseUpdated = useCallback(async (expenseId: string) => {
+  const handleExpenseUpdated = useCallback(async () => {
     const [didRefresh] = await Promise.all([refresh(), commonFund.refresh()])
-
-    if (!didRefresh) {
-      throw new ExpenseServiceError('No hemos podido actualizar el gasto.')
-    }
-
-    setSelectedExpenseId(expenseId)
+    if (!didRefresh) throw new ExpenseServiceError('No hemos podido actualizar el gasto.')
     setExpenseNotice('Gasto actualizado')
-    setCurrentPage('expense-detail')
   }, [commonFund, refresh])
 
   const handleExpenseDeleted = useCallback(async (expenseId: string) => {
     await deleteExpense(expenseId)
     await Promise.all([refresh(), commonFund.refresh()])
     setExpenseNotice(null)
-    setSelectedExpenseId(null)
-    setCurrentPage('expenses')
-  }, [commonFund, refresh])
+    goBack()
+  }, [commonFund, refresh, goBack])
 
   const openSettlement = (settlementId: string) => {
     setSettlementNotice(null)
-    setSelectedSettlementId(settlementId)
-    setCurrentPage('settlement-detail')
+    navigate('settlement-detail', { settlementId })
   }
 
   const handleSettlementCreated = useCallback(async () => {
     await refresh()
     setSettlementDialog(null)
     setSettlementNotice('Cuentas actualizadas')
-    setCurrentPage('home')
   }, [refresh])
 
-  const handleSettlementUpdated = useCallback(async (settlementId: string) => {
+  const handleSettlementUpdated = useCallback(async () => {
     await refresh()
     setSettlementDialog(null)
-    setSelectedSettlementId(settlementId)
     setSettlementNotice('Liquidación actualizada')
-    setCurrentPage('settlement-detail')
   }, [refresh])
 
   const handleSettlementDeleted = useCallback(async (settlementId: string) => {
     await deleteSettlement(settlementId)
     await refresh()
     setSettlementNotice(null)
-    setSelectedSettlementId(null)
-    setCurrentPage('settlements')
-  }, [refresh])
+    goBack()
+  }, [refresh, goBack])
 
   let pageContent
 
-  const goToSavings = () => setCurrentPage('savings')
+  const goToSavings = () => navigate('savings')
   const openSavings = (id: string) => {
-    setSelectedSavingsId(id)
-    setCurrentPage('savings-detail')
+    navigate('savings-detail', { savingsId: id })
   }
-  const selectedSavings = savings.goals.find(goal => goal.id === selectedSavingsId)
+  const selectedSavings = savings.goals.find(goal => goal.id === entry.params.savingsId)
 
   if (currentPage === 'savings') {
     pageContent = <SavingsPage goals={savings.goals} loading={savings.loading} error={savings.error}
-      onRetry={() => void savings.refresh()} onBack={goHome}
-      onCreate={() => setCurrentPage('add-savings')} onOpen={openSavings} />
+      onRetry={() => void savings.refresh()} onBack={goBack}
+      onCreate={() => navigate('add-savings')} onOpen={openSavings} />
   } else if (currentPage === 'add-savings') {
     pageContent = savings.loading || savings.error ? (
-      <ExpenseDataState loading={savings.loading} title="Nuevo ahorro" message={savings.error ?? 'Cargando miembros del hogar…'}
-        onRetry={savings.error ? () => void savings.refresh() : undefined} />
+      <div><NavigationBackButton />
+        <ExpenseDataState loading={savings.loading} title="Nuevo ahorro" message={savings.error ?? 'Cargando miembros del hogar…'}
+          onRetry={savings.error ? () => void savings.refresh() : undefined} />
+      </div>
     ) : <SavingsGoalForm householdId={householdId} currentUserId={currentUserId} members={savings.members}
-      onBack={goToSavings} onSaved={async id => { await savings.refresh(); openSavings(id) }} />
+      onBack={goBack} onSaved={async id => {
+        await savings.refresh()
+        if (navigation.getSnapshot().id === entry.id) navigate('savings-detail', { savingsId: id }, { replace: true })
+      }} />
   } else if (currentPage === 'savings-detail') {
     pageContent = selectedSavings && !savings.error ? (
       <SavingsDetailPage key={selectedSavings.id} goal={selectedSavings} householdId={householdId}
-        currentUserId={currentUserId} members={savings.members} onBack={goToSavings} onChanged={savings.refresh} />
-    ) : <ExpenseDataState loading={savings.loading} title="Ahorro no disponible"
-      message={savings.error ?? 'Vuelve a Ahorros para consultar tus objetivos.'}
-      onRetry={() => void savings.refresh()} />
+        currentUserId={currentUserId} members={savings.members} onBack={goBack} onChanged={savings.refresh}
+        mode={entry.params.savingsMode ?? 'detail'}
+        onOpenMode={(savingsMode) => navigate('savings-detail', { savingsId: selectedSavings.id, savingsMode })} />
+    ) : <div><NavigationBackButton />
+      <ExpenseDataState loading={savings.loading} title="Ahorro no disponible"
+        message={savings.error ?? 'Vuelve a la pantalla anterior para consultar tus objetivos.'}
+        onRetry={() => void savings.refresh()} />
+    </div>
   } else if (currentPage === 'home') {
     pageContent = (
       <HomePage
@@ -476,7 +433,6 @@ function ExpenseApp({
   } else if (currentPage === 'expenses') {
     pageContent = (
       <ExpensesPage
-        key={expensesPageKey}
         expenses={expenses}
         currentUserId={currentUserId}
         accountingMonthStartDay={accountingMonthStartDay}
@@ -498,7 +454,7 @@ function ExpenseApp({
         commonFundEnabled={Boolean(commonFund.settings?.enabled)}
         commonFundLoading={commonFund.loading}
         onOpenCommonFund={() => goToCommonFund('top-up')}
-        onBack={goHome}
+        onBack={goBack}
         onCreated={handleExpenseCreated}
       />
     )
@@ -507,8 +463,8 @@ function ExpenseApp({
       <CommonFundPage
         householdId={householdId}
         {...commonFund}
-        initialDialog={commonFundInitialDialog}
-        onBack={goHome}
+        initialDialog={entry.params.commonFundDialog}
+        onBack={goBack}
         onRefresh={commonFund.refresh}
         onRetry={commonFund.retry}
       />
@@ -525,17 +481,21 @@ function ExpenseApp({
         isSigningOut={isSigningOut}
         signOutError={signOutError}
         onAccountingMonthStartDayChange={onAccountingMonthStartDayChange}
-        onCategoriesChanged={() => refresh()}
         onSignOut={onSignOut}
+        onViewCategories={() => navigate('categories')}
         onViewSettlements={goToSettlements}
         onViewSavings={goToSavings}
         onViewRecurringExpenses={() => goToRecurringExpenses()}
       />
     )
+  } else if (currentPage === 'categories') {
+    pageContent = <div className="settings-page">
+      <header className="add-expense-header"><NavigationBackButton /><h1>Categorías</h1></header>
+      <CategorySettings householdId={householdId} onCategoriesChanged={refresh} />
+    </div>
   } else if (currentPage === 'recurring-expenses') {
     pageContent = (
       <RecurringExpensesPage
-        key={recurringTemplateToEditId ?? 'recurring-management'}
         householdId={householdId}
         currentUserId={currentUserId}
         recurringExpenses={recurring.recurringExpenses}
@@ -543,11 +503,15 @@ function ExpenseApp({
         commonFundEnabled={Boolean(commonFund.settings?.enabled)}
         loading={recurring.loading}
         error={recurring.error}
-        onBack={goToSettings}
+        onBack={goBack}
         onRetry={() => void recurring.refresh()}
         onChanged={refreshRecurringManagement}
         onReviewOccurrence={reviewOccurrence}
-        initialTemplateId={recurringTemplateToEditId}
+        initialTemplateId={entry.params.templateId ?? null}
+        mode={entry.params.recurringMode ?? 'closed'}
+        onCreateTemplate={() => navigate('recurring-expenses', { recurringMode: 'create' })}
+        onEditTemplate={(templateId) => navigate('recurring-expenses', { recurringMode: 'edit', templateId })}
+        onCloseTemplate={goBack}
       />
     )
   } else if (currentPage === 'recurring-occurrence' && selectedOccurrence) {
@@ -578,7 +542,7 @@ function ExpenseApp({
         title="Revisar gasto"
         createAction={(expense) => confirmRecurringOccurrence({ occurrenceId: selectedOccurrence.id, expense })}
         onOpenCommonFund={() => goToCommonFund('top-up')}
-        onBack={goToRecurringExpenses}
+        onBack={goBack}
         onCreated={handleRecurringExpenseCreated}
       />
     )
@@ -604,12 +568,10 @@ function ExpenseApp({
           settlements={settlements}
           loading={loading}
           error={error}
-          initialScope={statisticsInitialScope}
+          initialScope={entry.params.statisticsScope ?? 'common'}
           onRetry={() => void refresh()}
           onSelectCategory={(filter) => {
-            setStatisticsExpenseFilter(filter)
-            setSelectedExpenseId(null)
-            setCurrentPage('expenses')
+            navigate('expenses', { statisticsFilter: filter })
           }}
         />
       </Suspense>
@@ -622,7 +584,7 @@ function ExpenseApp({
         loading={loading}
         error={error}
         onRetry={() => void refresh()}
-        onBack={goToSettings}
+        onBack={goBack}
         onSelectSettlement={openSettlement}
       />
     )
@@ -632,7 +594,7 @@ function ExpenseApp({
         settlement={selectedSettlement}
         members={members}
         statusMessage={settlementNotice}
-        onBack={goToSettlements}
+        onBack={goBack}
         onEdit={() => {
           setSettlementNotice(null)
           setSettlementDialog({ mode: 'edit', settlementId: selectedSettlement.id })
@@ -650,40 +612,20 @@ function ExpenseApp({
         commonFundBalance={commonFund.balance}
         commonFundEnabled={Boolean(commonFund.settings?.enabled)}
         commonFundLoading={commonFund.loading}
-        onBack={goToExpenses}
+        onBack={goBack}
         onUpdated={handleExpenseUpdated}
         onDelete={handleExpenseDeleted}
         statusMessage={expenseNotice}
         onManageRecurringExpense={(recurringExpenseId) => goToRecurringExpenses(recurringExpenseId)}
       />
     )
-  } else if (currentPage === 'settlement-detail') {
-    pageContent = (
-      <SettlementsPage
-        settlements={settlements}
-        members={members}
-        loading={loading}
-        error={error}
-        onRetry={() => void refresh()}
-        onBack={goToSettings}
-        onSelectSettlement={openSettlement}
-      />
-    )
   } else {
-    pageContent = (
-      <ExpensesPage
-        key={expensesPageKey}
-        currentUserId={currentUserId}
-        accountingMonthStartDay={accountingMonthStartDay}
-        expenses={expenses}
-        members={members}
-        loading={loading}
-        error={error}
-        onRetry={() => void refresh()}
-        onSelectExpense={openExpense}
-        statisticsFilter={statisticsExpenseFilter}
-      />
-    )
+    pageContent = <div>
+      <NavigationBackButton />
+      <ExpenseDataState loading={loading || savings.loading || recurring.loading}
+        title="Detalle no disponible" message="El movimiento ya no está disponible. Vuelve a la pantalla anterior."
+        onRetry={() => void refresh()} />
+    </div>
   }
 
   const settlementBeingEdited =
@@ -692,21 +634,21 @@ function ExpenseApp({
       : undefined
 
   return (
-    <>
+    <NavigationContext.Provider value={navigationContext}>
       <AppShell
         currentPage={currentPage}
         onAdd={() => setIsAddActionOpen(true)}
-        onGoExpenses={goToExpenses}
+        onGoExpenses={() => navigate('expenses', {}, { root: true })}
         onGoHome={goHome}
-        onGoStatistics={goToStatistics}
+        onGoStatistics={() => navigate('statistics', {}, { root: true })}
         onGoSettings={goToSettings}
       >
-        {pageContent}
+        <div key={entry.id}>{pageContent}</div>
       </AppShell>
 
       {isAddActionOpen && <AddActionDialog onCancel={closeAddAction}
-        onExpense={() => { closeAddAction(); setSelectedExpenseId(null); setCurrentPage('add-expense') }}
-        onSavings={() => { closeAddAction(); setCurrentPage('add-savings') }} />}
+        onExpense={() => { closeAddAction(); navigate('add-expense') }}
+        onSavings={() => { closeAddAction(); navigate('add-savings') }} />}
 
       {settlementDialog && (settlementDialog.mode === 'create' || settlementBeingEdited) && (
         <SettlementDialog
@@ -724,7 +666,7 @@ function ExpenseApp({
           }
         />
       )}
-    </>
+    </NavigationContext.Provider>
   )
 }
 

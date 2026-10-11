@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ExpenseDataState } from '../components/ExpenseDataState'
@@ -40,6 +41,10 @@ type RecurringExpensesPageProps = {
   onChanged: () => void | Promise<unknown>
   onReviewOccurrence: (occurrence: RecurringExpenseOccurrence) => void
   initialTemplateId: string | null
+  mode: 'closed' | 'create' | 'edit'
+  onCreateTemplate: () => void
+  onEditTemplate: (id: string) => void
+  onCloseTemplate: () => void
 }
 
 const frequencyLabels: Record<RecurringFrequency, string> = {
@@ -66,10 +71,12 @@ export function RecurringExpensesPage({
   onChanged,
   onReviewOccurrence,
   initialTemplateId,
+  mode: formMode,
+  onCreateTemplate,
+  onEditTemplate,
+  onCloseTemplate,
 }: RecurringExpensesPageProps) {
-  const [formMode, setFormMode] = useState<'closed' | 'create' | 'edit'>(initialTemplateId ? 'edit' : 'closed')
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(initialTemplateId)
-  const editingTemplate = recurringExpenses.find((template) => template.id === editingTemplateId) ?? null
+  const editingTemplate = recurringExpenses.find((template) => template.id === initialTemplateId) ?? null
   const [actionId, setActionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [deletingTemplate, setDeletingTemplate] = useState<RecurringExpense | null>(null)
@@ -138,9 +145,7 @@ export function RecurringExpensesPage({
   return (
     <div className="recurring-page">
       <header className="add-expense-header recurring-page-header">
-        <button className="back-button" type="button" onClick={onBack} aria-label="Volver a Ajustes">
-          <span aria-hidden="true">←</span>
-        </button>
+        <NavigationBackButton onBack={onBack} />
         <div>
           <span>Planificación</span>
           <h1>Gastos recurrentes</h1>
@@ -161,14 +166,10 @@ export function RecurringExpensesPage({
           currentUserId={currentUserId}
           commonFundEnabled={commonFundEnabled}
           initialTemplate={formMode === 'edit' ? editingTemplate : null}
-          onCancel={() => {
-            setFormMode('closed')
-            setEditingTemplateId(null)
-          }}
+          onCancel={onCloseTemplate}
           onSaved={async () => {
             await onChanged()
-            setFormMode('closed')
-            setEditingTemplateId(null)
+            onCloseTemplate()
           }}
         />
       ) : (
@@ -176,10 +177,7 @@ export function RecurringExpensesPage({
           <button
             className="recurring-new-button"
             type="button"
-            onClick={() => {
-              setEditingTemplateId(null)
-              setFormMode('create')
-            }}
+            onClick={onCreateTemplate}
           >
             <span aria-hidden="true">+</span> Nuevo recurrente
           </button>
@@ -234,10 +232,7 @@ export function RecurringExpensesPage({
                 templates={activeTemplates}
                 emptyMessage="Todavía no hay gastos recurrentes activos."
                 actionId={actionId}
-                onEdit={(template) => {
-                  setEditingTemplateId(template.id)
-                  setFormMode('edit')
-                }}
+                onEdit={(template) => onEditTemplate(template.id)}
                 onToggle={(template) => void handleToggle(template)}
                 onDelete={(template) => {
                   setDeleteError(null)
@@ -250,10 +245,7 @@ export function RecurringExpensesPage({
                   eyebrow="Sin nuevas ocurrencias"
                   templates={pausedTemplates}
                   actionId={actionId}
-                  onEdit={(template) => {
-                    setEditingTemplateId(template.id)
-                    setFormMode('edit')
-                  }}
+                  onEdit={(template) => onEditTemplate(template.id)}
                   onToggle={(template) => void handleToggle(template)}
                   onDelete={(template) => {
                     setDeleteError(null)

@@ -1,3 +1,4 @@
+import { usePageState } from '../navigation/useNavigation'
 import './CategorySettings.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
@@ -61,7 +62,7 @@ export function CategorySettings({
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
   const [editor, setEditor] = useState<CategoryEditor>(null)
-  const [showInactive, setShowInactive] = useState(false)
+  const [showInactive, setShowInactive] = usePageState('categories.showInactive', false)
 
   const loadCategories = useCallback(async (showLoading = true) => {
     const currentRequest = ++requestId.current

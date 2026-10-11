@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
@@ -75,9 +76,7 @@ export function CommonFundPage({
   return (
     <div className="common-fund-page">
       <header className="add-expense-header">
-        <button className="back-button" type="button" onClick={onBack} aria-label="Volver a Inicio">
-          <span aria-hidden="true">←</span>
-        </button>
+        <NavigationBackButton onBack={onBack} />
         <h1>Fondo común</h1>
       </header>
 
@@ -214,7 +213,7 @@ function CommonFundStateScreen({
   return (
     <div className="common-fund-page">
       <header className="add-expense-header">
-        <button className="back-button" type="button" onClick={onBack} aria-label="Volver a Inicio">←</button>
+        <NavigationBackButton onBack={onBack} />
         <h1>Fondo común</h1>
       </header>
       <section className="card expense-form-state-card">

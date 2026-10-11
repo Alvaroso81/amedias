@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { NavigationBackButton } from '../components/NavigationBackButton'
+import { usePageState } from '../navigation/useNavigation'
+import { useMemo } from 'react'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import { ExpenseHistoryList } from '../components/ExpenseHistoryList'
 import { ExpensesFilters } from '../components/ExpensesFilters'
@@ -50,25 +52,25 @@ export function ExpensesPage({
     )
     return new Date(`${accountingMonth}T12:00:00`)
   }, [accountingMonthStartDay])
-  const [selectedMonth, setSelectedMonth] = useState(() => {
+  const [selectedMonth, setSelectedMonth] = usePageState('expenses.selectedMonth', () => {
     if (statisticsFilter) return new Date(`${statisticsFilter.anchorDate}T12:00:00`)
     return currentAccountingDate
   })
-  const [periodMode, setPeriodMode] = useState<'month' | 'year' | 'history'>(
+  const [periodMode, setPeriodMode] = usePageState<'month' | 'year' | 'history'>('expenses.periodMode',
     statisticsFilter?.periodMode ?? 'month',
   )
-  const [showStatisticsContext, setShowStatisticsContext] = useState(Boolean(statisticsFilter))
-  const [search, setSearch] = useState('')
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const [showStatisticsContext, setShowStatisticsContext] = usePageState('expenses.showStatisticsContext', Boolean(statisticsFilter))
+  const [search, setSearch] = usePageState('expenses.search', '')
+  const [isFiltersOpen, setIsFiltersOpen] = usePageState('expenses.isFiltersOpen', false)
   const initialCategoryFilter = statisticsFilter
     ? (statisticsFilter.categoryId ?? `name:${statisticsFilter.categoryName}`)
     : ''
-  const [draftFilters, setDraftFilters] = useState<ExpenseFilters>({
+  const [draftFilters, setDraftFilters] = usePageState<ExpenseFilters>('expenses.draftFilters', {
     ...emptyExpenseFilters,
     category: initialCategoryFilter,
     expenseType: statisticsFilter?.scope ?? 'all',
   })
-  const [appliedFilters, setAppliedFilters] = useState<ExpenseFilters>({
+  const [appliedFilters, setAppliedFilters] = usePageState<ExpenseFilters>('expenses.appliedFilters', {
     ...emptyExpenseFilters,
     category: initialCategoryFilter,
     expenseType: statisticsFilter?.scope ?? 'all',
@@ -154,6 +156,7 @@ export function ExpensesPage({
 
   return (
     <div className="expenses-page">
+      <NavigationBackButton />
       <header className="expenses-page-header">
         <h1>Gastos</h1>
         <div

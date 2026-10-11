@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { SavingsGoal, SavingsMember } from '../types/savings'
@@ -7,11 +8,12 @@ import { addSavingsContribution, withdrawSavings, setSavingsArchived } from '../
 import { formatSavingsCents, parseSavingsCents, savingsBalance, savingsContributed, savingsTargetShares } from '../utils/savings'
 import { formatShortDate, getTodayIsoDate } from '../utils/formatDate'
 
-export function SavingsDetailPage({ goal, householdId, currentUserId, members, onBack, onChanged }: {
+export function SavingsDetailPage({ goal, householdId, currentUserId, members, onBack, onChanged, mode = 'detail', onOpenMode }: {
   goal: SavingsGoal; householdId: string; currentUserId: string; members: SavingsMember[]
   onBack: () => void; onChanged: () => Promise<unknown>
+  mode?: 'detail' | 'edit' | 'contribution' | 'withdrawal'
+  onOpenMode: (mode: 'edit' | 'contribution' | 'withdrawal') => void
 }) {
-  const [mode, setMode] = useState<'detail' | 'edit' | 'contribution' | 'withdrawal'>('detail')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const shares = goal.targetAmountCents ? savingsTargetShares(goal.targetAmountCents, goal.participants) : null
@@ -24,11 +26,11 @@ export function SavingsDetailPage({ goal, householdId, currentUserId, members, o
     finally { setBusy(false) }
   }
   if (mode === 'edit') return <SavingsGoalForm householdId={householdId} currentUserId={currentUserId} members={members} goal={goal}
-    onBack={() => setMode('detail')} onSaved={async () => { await onChanged(); setMode('detail') }} />
+    onBack={onBack} onSaved={async () => { await onChanged(); onBack() }} />
   if (mode !== 'detail') return <SavingsMovementForm goal={goal} mode={mode} currentUserId={currentUserId} members={members}
-    onBack={() => setMode('detail')} onSaved={async () => { await onChanged(); setMode('detail') }} />
+    onBack={onBack} onSaved={async () => { await onChanged(); onBack() }} />
   return <div className="savings-page">
-    <header className="add-expense-header"><button type="button" className="back-button" onClick={onBack} aria-label="Volver a Ahorros">←</button><h1>{goal.name}</h1></header>
+    <header className="add-expense-header"><NavigationBackButton onBack={onBack} /><h1>{goal.name}</h1></header>
     <section className="card savings-detail-hero">
       <span className="savings-type">{goal.type === 'personal' ? 'Personal' : 'Compartido'}{goal.archivedAt ? ' · Archivado' : ''}</span>
       <p>Saldo actual</p><SavingsAmount goal={goal} />
@@ -37,9 +39,9 @@ export function SavingsDetailPage({ goal, householdId, currentUserId, members, o
     </section>
     {error && <p className="expense-submit-error" role="alert">{error}</p>}
     {!goal.archivedAt && <div className="savings-actions">
-      <button type="button" className="save-expense-button" disabled={busy} onClick={() => setMode('contribution')}>Añadir ahorro</button>
-      <button type="button" className="auth-secondary-button" disabled={busy || savingsBalance(goal) <= 0n} onClick={() => setMode('withdrawal')}>Retirar</button>
-      <button type="button" className="auth-secondary-button" disabled={busy} onClick={() => setMode('edit')}>Editar</button>
+      <button type="button" className="save-expense-button" disabled={busy} onClick={() => onOpenMode('contribution')}>Añadir ahorro</button>
+      <button type="button" className="auth-secondary-button" disabled={busy || savingsBalance(goal) <= 0n} onClick={() => onOpenMode('withdrawal')}>Retirar</button>
+      <button type="button" className="auth-secondary-button" disabled={busy} onClick={() => onOpenMode('edit')}>Editar</button>
     </div>}
     {goal.type === 'shared' && <section className="card savings-participants">
       <h2>Participantes</h2>
@@ -88,7 +90,7 @@ function SavingsMovementForm({ goal, mode, currentUserId, members, onBack, onSav
     finally { setBusy(false) }
   }
   return <div className="savings-page">
-    <header className="add-expense-header"><button type="button" className="back-button" onClick={onBack} disabled={busy} aria-label="Volver al ahorro">←</button><h1>{mode === 'contribution' ? 'Añadir ahorro' : 'Retirar'}</h1></header>
+    <header className="add-expense-header"><NavigationBackButton onBack={onBack} disabled={busy} /><h1>{mode === 'contribution' ? 'Añadir ahorro' : 'Retirar'}</h1></header>
     <form className="card savings-form" onSubmit={event => void submit(event)}>
       <h2>{goal.name}</h2><p>Disponible: {formatSavingsCents(savingsBalance(goal))}</p>
       <fieldset disabled={busy}>

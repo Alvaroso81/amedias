@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { NavigationBackButton } from '../components/NavigationBackButton'
+import { usePageState } from '../navigation/useNavigation'
+import { useMemo } from 'react'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import type {
   ExpenseReadMember,
@@ -106,12 +108,12 @@ export function StatisticsPage({
   onRetry,
   onSelectCategory,
 }: StatisticsPageProps) {
-  const [periodMode, setPeriodMode] = useState<StatisticsPeriodMode>('month')
-  const [anchorDate, setAnchorDate] = useState(() =>
+  const [periodMode, setPeriodMode] = usePageState<StatisticsPeriodMode>('statistics.periodMode', 'month')
+  const [anchorDate, setAnchorDate] = usePageState('statistics.anchorDate', () =>
     getInitialMonth(accountingMonthStartDay),
   )
-  const [activeTab, setActiveTab] = useState<StatisticsTab>('summary')
-  const [scope, setScope] = useState<StatisticsScope>(initialScope)
+  const [activeTab, setActiveTab] = usePageState<StatisticsTab>('statistics.activeTab', 'summary')
+  const [scope, setScope] = usePageState<StatisticsScope>('statistics.scope', initialScope)
   const currentAccountingDate = useMemo(
     () => getInitialMonth(accountingMonthStartDay),
     [accountingMonthStartDay],
@@ -200,6 +202,7 @@ export function StatisticsPage({
 
   return (
     <div className="statistics-page">
+      <NavigationBackButton />
       <header className="statistics-header">
         <p>{scope === 'common' ? 'Análisis del hogar' : 'Análisis personal'}</p>
         <h1>Estadísticas</h1>

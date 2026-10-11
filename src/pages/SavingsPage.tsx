@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import type { SavingsGoal } from '../types/savings'
 import { formatSavingsCents, savingsBalance, savingsProgress } from '../utils/savings'
@@ -7,7 +8,7 @@ export function SavingsPage({ goals, loading, error, onRetry, onBack, onCreate, 
   onRetry: () => void; onBack: () => void; onCreate: () => void; onOpen: (id: string) => void
 }) {
   return <div className="savings-page">
-    <header className="add-expense-header"><button type="button" className="back-button" onClick={onBack} aria-label="Volver a Inicio">←</button><h1>Ahorros</h1></header>
+    <header className="add-expense-header"><NavigationBackButton onBack={onBack} /><h1>Ahorros</h1></header>
     <button type="button" className="save-expense-button" onClick={onCreate}>Nuevo ahorro</button>
     {loading || error ? <ExpenseDataState loading={loading} title={loading ? 'Cargando ahorros' : 'No hemos podido cargar los ahorros'} message={error ?? 'Estamos preparando tus objetivos.'} onRetry={error ? onRetry : undefined} /> :
       (['shared', 'personal', 'archived'] as const).map(section => {

@@ -1,3 +1,4 @@
+import { NavigationBackButton } from '../components/NavigationBackButton'
 import { ExpenseDataState } from '../components/ExpenseDataState'
 import type { ExpenseReadMember, SettlementRecord } from '../types/expenseRead'
 import { formatCurrency } from '../utils/formatCurrency'
@@ -26,9 +27,7 @@ export function SettlementsPage({
   return (
     <div className="settlements-page">
       <header className="add-expense-header detail-page-header">
-        <button className="back-button" type="button" onClick={onBack} aria-label="Volver a Ajustes">
-          <span aria-hidden="true">←</span>
-        </button>
+        <NavigationBackButton onBack={onBack} />
         <div>
           <span>Histórico</span>
           <h1>Liquidaciones</h1>
