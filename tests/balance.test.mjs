@@ -88,6 +88,7 @@ test('the household view reconciles with Statistics even when the viewer is a th
 
 const { BalanceCard } = load(resolve('src/components/BalanceCard.tsx'))
 const { SettlementDetailPage } = load(resolve('src/pages/SettlementDetailPage.tsx'))
+const { BalanceDetailPage } = load(resolve('src/pages/BalanceDetailPage.tsx'))
 const noop = () => {}
 const render = (component, props) => renderToStaticMarkup(createElement(component, props))
 test('the same balance offers He pagado to the debtor and He recibido to the creditor',()=>{
@@ -107,4 +108,23 @@ test('only settlement participants see edit and delete actions; third members re
  const html=render(SettlementDetailPage,{...props,currentUserId:'third'})
  assert(!html.includes('Editar liquidación'));assert(!html.includes('Eliminar liquidación'))
  assert.match(html,/25,00/);assert.match(html,/Rosario/);assert.match(html,/Álvaro/)
+})
+
+test('the detail displays newest movements first while retaining chronological accumulated balances',()=>{
+ const expenses=[expense('Gasto antiguo',20,'a','common','member','2026-10-01'),expense('Gasto reciente',80,'a','common','member','2026-10-03')]
+ const settlements=[settlement(25,'r','a','2026-10-04')]
+ const props={expenses,settlements,members,currentUserId:'a',loading:false,error:null,onRetry:noop,onSelectExpense:noop,onSelectSettlement:noop,onSettleAccounts:noop}
+ const html=render(BalanceDetailPage,props).replaceAll('\u00a0',' ')
+ const movements=html.split('class="card balance-ledger-row"').slice(1)
+ assert.equal(movements.length,3)
+ assert(movements[0].indexOf('Pago de Rosario a Álvaro')<movements[0].indexOf('25,00'))
+ assert(movements[1].indexOf('Gasto reciente')<movements[1].indexOf('50,00'))
+ assert(movements[2].indexOf('Gasto antiguo')<movements[2].indexOf('10,00'))
+ assert(movements[0].split('Saldo acumulado')[1].includes('25,00'))
+ assert(movements[1].split('Saldo acumulado')[1].includes('50,00'))
+ assert(movements[2].split('Saldo acumulado')[1].includes('10,00'))
+ assert.match(html,/del más reciente al más antiguo/)
+ const chronological=getBalanceBreakdown(expenses,settlements,members,'a')
+ assert.deepEqual(chronological.rows.map(row=>row.record.id),['Gasto antiguo','Gasto reciente','s25'])
+ assert.equal(chronological.balance.amount,25)
 })

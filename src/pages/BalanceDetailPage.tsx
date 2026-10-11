@@ -36,8 +36,8 @@ export function BalanceDetailPage({ expenses, settlements, members, currentUserI
           if (balance.debtor && balance.creditor) onSettleAccounts({ fromUserId: balance.debtor.member.userId, toUserId: balance.creditor.member.userId, amount: balance.amount })
         }} />
       <p className="balance-detail-help">Todo el histórico de gastos comunes pagados por miembros y liquidaciones. Los personales y el fondo común no intervienen.</p>
-      <ol className="balance-ledger" aria-label="Desglose del balance en orden cronológico">
-        {rows.map((row) => <li key={`${row.kind}-${row.record.id}`} className="card balance-ledger-row">
+      <ol className="balance-ledger" aria-label="Desglose del balance del más reciente al más antiguo">
+        {[...rows].reverse().map((row) => <li key={`${row.kind}-${row.record.id}`} className="card balance-ledger-row">
           <time dateTime={row.date}>{formatLongDate(row.date)}</time>
           {row.kind === 'expense' ? <>
             <button className="balance-record-link" type="button" onClick={() => onSelectExpense(row.record.id)}>
