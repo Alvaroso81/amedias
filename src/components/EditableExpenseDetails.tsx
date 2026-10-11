@@ -1,5 +1,7 @@
 import './EditableExpenseDetails.css'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ExpenseFormActions } from './ExpenseFormActions'
+import { ExpenseConversionDialog } from './ExpenseConversionDialog'
 import type { FormEvent, ReactNode } from 'react'
 import { AccountingMonthField } from './AccountingMonthField'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
@@ -43,6 +45,7 @@ type EditableExpenseDetailsProps = {
   commonFundEnabled: boolean
   commonFundLoading: boolean
   onUpdated: (expenseId: string) => void | Promise<void>
+  onEditingChange?: (editing: boolean) => void
 }
 
 function hasAtMostTwoDecimals(value: number) {
@@ -121,7 +124,10 @@ export function EditableExpenseDetails({
   commonFundEnabled,
   commonFundLoading,
   onUpdated,
+  onEditingChange,
 }: EditableExpenseDetailsProps) {
+  const regionRef = useRef<HTMLElement>(null)
+  const saveInFlight = useRef(false)
   const formData = useExpenseFormData(householdId)
   const [activeField, setActiveField] = useState<EditableField | null>(null)
   const [draft, setDraft] = useState<ExpenseEditDraft | null>(null)
@@ -141,6 +147,14 @@ export function EditableExpenseDetails({
     )
     setSaveError(null)
     setActiveField(field)
+    onEditingChange?.(true)
+  }
+
+  const restoreEditingFocus = () => {
+    const field = activeField
+    window.requestAnimationFrame(() => {
+      regionRef.current?.querySelector<HTMLButtonElement>(`[data-edit-field="${field}"]`)?.focus()
+    })
   }
 
   const cancelEditing = () => {
@@ -151,10 +165,12 @@ export function EditableExpenseDetails({
     setSaveError(null)
     setPendingConversion(null)
     setAccountingMonthManuallyChanged(false)
+    onEditingChange?.(false)
+    restoreEditingFocus()
   }
 
   const saveEditing = async (confirmedConversion: ExpenseType | null = null) => {
-    if (!draft || isSaving) return
+    if (!draft || saveInFlight.current) return
     const validationError = validateDraft(
       draft,
       formData.categories,
@@ -177,6 +193,7 @@ export function EditableExpenseDetails({
       return
     }
 
+    saveInFlight.current = true
     setIsSaving(true)
     setSaveError(null)
 
@@ -187,9 +204,12 @@ export function EditableExpenseDetails({
       setActiveField(null)
       setDraft(null)
       setAccountingMonthManuallyChanged(false)
+      onEditingChange?.(false)
+      restoreEditingFocus()
     } catch (error) {
       setSaveError(error instanceof ExpenseServiceError ? error.message : 'No hemos podido actualizar el gasto.')
     } finally {
+      saveInFlight.current = false
       setIsSaving(false)
     }
   }
@@ -241,6 +261,8 @@ export function EditableExpenseDetails({
           onCancel={cancelEditing}
         >
           <input
+            aria-invalid={Boolean(saveError)}
+            aria-describedby={saveError ? 'expense-inline-error' : undefined}
             autoFocus
             type="text"
             value={draft.description}
@@ -263,6 +285,8 @@ export function EditableExpenseDetails({
         >
           <div className="inline-amount-input">
             <input
+              aria-invalid={Boolean(saveError)}
+              aria-describedby={saveError ? 'expense-inline-error' : undefined}
               autoFocus
               type="number"
               inputMode="decimal"
@@ -288,6 +312,8 @@ export function EditableExpenseDetails({
           onCancel={cancelEditing}
         >
           <select
+            aria-invalid={Boolean(saveError)}
+            aria-describedby={saveError ? 'expense-inline-error' : undefined}
             autoFocus
             value={draft.categoryId}
             aria-label="Categoría"
@@ -429,6 +455,8 @@ export function EditableExpenseDetails({
                   <span>{member.displayName}</span>
                   <span className="percentage-input-wrap">
                     <input
+                      aria-invalid={Boolean(saveError)}
+                      aria-describedby={saveError ? 'expense-inline-error' : undefined}
                       type="number"
                       inputMode="decimal"
                       min="0"
@@ -461,6 +489,8 @@ export function EditableExpenseDetails({
           onCancel={cancelEditing}
         >
           <input
+            aria-invalid={Boolean(saveError)}
+            aria-describedby={saveError ? 'expense-inline-error' : undefined}
             autoFocus
             type="date"
             value={draft.expenseDate}
@@ -509,6 +539,7 @@ export function EditableExpenseDetails({
           onCancel={cancelEditing}
         >
           <AccountingMonthField
+            errorId={saveError ? 'expense-inline-error' : undefined}
             id="inline-accounting-month"
             value={accountingMonthDraft.accountingMonth}
             automaticValue={automaticAccountingMonth}
@@ -537,6 +568,8 @@ export function EditableExpenseDetails({
         onCancel={cancelEditing}
       >
         <textarea
+          aria-invalid={Boolean(saveError)}
+          aria-describedby={saveError ? 'expense-inline-error' : undefined}
           autoFocus
           rows={3}
           value={draft.note}
@@ -564,7 +597,8 @@ export function EditableExpenseDetails({
         <button
           className="detail-edit-trigger"
           type="button"
-          disabled={!canEdit || isSaving}
+          disabled={!canEdit || isSaving || activeField !== null}
+          data-edit-field={field}
           aria-label={`Editar ${label}`}
           onClick={() => startEditing(field)}
         >
@@ -577,7 +611,7 @@ export function EditableExpenseDetails({
   )
 
   return (
-    <section className="card expense-detail-card" aria-label="Información editable del gasto">
+    <section ref={regionRef} className="card expense-detail-card" aria-label="Información editable del gasto">
       {formData.loading && (
         <p className="expense-inline-data-state" role="status">
           Preparando edición…
@@ -634,36 +668,8 @@ export function EditableExpenseDetails({
       )}
       {renderRow('note', 'Nota', expense.note || 'Añadir nota', true)}
       {pendingConversion && (
-        <div className="inline-conversion-backdrop">
-          <div className="inline-conversion-dialog" role="dialog" aria-modal="true" aria-labelledby="conversion-title">
-            <h2 id="conversion-title">
-              {pendingConversion === 'personal'
-                ? 'Convertir en gasto personal'
-                : 'Convertir en gasto común'}
-            </h2>
-            <p>
-              {pendingConversion === 'personal'
-                ? 'Este gasto dejará de ser visible para los demás miembros del hogar y dejará de formar parte de las cuentas comunes.'
-                : 'Al convertir este gasto en común, será visible para los demás miembros del hogar y podrá afectar al balance.'}
-            </p>
-            <div className="inline-conversion-actions">
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => void saveEditing(pendingConversion)}
-              >
-                {isSaving
-                  ? 'Guardando...'
-                  : pendingConversion === 'personal'
-                    ? 'Convertir en personal'
-                    : 'Convertir y guardar'}
-              </button>
-              <button type="button" disabled={isSaving} onClick={() => setPendingConversion(null)}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExpenseConversionDialog target={pendingConversion} isSaving={isSaving} error={saveError}
+          onConfirm={() => void saveEditing(pendingConversion)} onCancel={() => setPendingConversion(null)} />
       )}
     </section>
   )
@@ -686,31 +692,34 @@ function InlineEditor({
   onCancel,
   children,
 }: InlineEditorProps) {
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const form = useRef<HTMLFormElement>(null)
+  const focusEditor = () => {
+    const control = form.current?.querySelector<HTMLElement>('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')
+      ?? form.current?.querySelector<HTMLElement>('fieldset button:not(:disabled)')
+    control?.focus({ preventScroll: true })
+    form.current?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+  }
+
+  useEffect(() => { focusEditor() }, [])
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void onSave()
+    await onSave()
+    window.requestAnimationFrame(() => {
+      if (form.current?.querySelector('#expense-inline-error')) focusEditor()
+    })
   }
 
   return (
-    <form className="inline-expense-editor" onSubmit={handleSubmit} noValidate>
-      <div className="inline-expense-editor__header">
-        <span>{label}</span>
-        {isSaving && <span role="status">Guardando...</span>}
-      </div>
-      {children}
-      {error && (
-        <p className="inline-expense-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="inline-expense-actions">
-        <button className="inline-save-button" type="submit" disabled={isSaving}>
-          {isSaving ? 'Guardando...' : 'Guardar'}
-        </button>
-        <button type="button" disabled={isSaving} onClick={onCancel}>
-          Cancelar
-        </button>
-      </div>
+    <form ref={form} className="inline-expense-editor" aria-label={`Editar ${label}`}
+      aria-busy={isSaving} data-invalid={Boolean(error)} onSubmit={handleSubmit} noValidate>
+      <div className="inline-expense-editor__header"><span>{label}</span></div>
+      <fieldset className="inline-expense-fields" disabled={isSaving}
+        aria-label={label} aria-invalid={Boolean(error)} aria-describedby={error ? 'expense-inline-error' : undefined}>
+        {children}
+      </fieldset>
+      {error && <p className="inline-expense-error" id="expense-inline-error" role="alert">{error}</p>}
+      <ExpenseFormActions onCancel={onCancel} isSaving={isSaving} saveLabel="Guardar cambios" />
     </form>
   )
 }

@@ -23,7 +23,8 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="app-shell">
-      <main className="app-content">{children}</main>
+      <a className="skip-to-content" href="#main-content">Saltar al contenido</a>
+      <main id="main-content" className="app-content" tabIndex={-1}>{children}</main>
       <BottomNavigation
         currentPage={currentPage}
         onAdd={onAdd}

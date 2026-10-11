@@ -181,35 +181,6 @@
   line-height: 1.4;
 }
 
-.inline-expense-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.inline-expense-actions button {
-  min-height: 40px;
-  padding: 0 15px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.inline-expense-actions .inline-save-button {
-  border-color: transparent;
-  color: #ffffff;
-  background: var(--primary);
-}
-
-.inline-expense-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
 .expense-inline-data-state,
 .expense-inline-data-error {
   margin: 0;
@@ -245,27 +216,13 @@
     grid-template-columns: minmax(68px, 0.58fr) minmax(0, 1.42fr) 10px;
     gap: 9px;
   }
-
-  .inline-expense-actions button {
-    flex: 1 1 105px;
-  }
-}
-
-.inline-conversion-backdrop {
-  position: fixed;
-  z-index: 120;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: max(20px, env(safe-area-inset-top))
-    max(20px, env(safe-area-inset-right))
-    max(20px, env(safe-area-inset-bottom))
-    max(20px, env(safe-area-inset-left));
-  background: rgba(22, 32, 28, 0.38);
 }
 
 .inline-conversion-dialog {
-  width: min(100%, 430px);
+  width: min(calc(100% - 40px), 430px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
   padding: 24px;
   border-radius: 22px;
   background: var(--surface);
@@ -318,4 +275,22 @@
   .inline-conversion-actions {
     grid-template-columns: 1fr;
   }
+}
+
+.inline-conversion-dialog::backdrop { background: rgb(22 32 28 / 38%); }
+.inline-expense-fields { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.inline-expense-editor { scroll-margin-block: 24px 140px; }
+.inline-expense-editor :is(input, select, textarea) { border-color: #7b8d82; scroll-margin-block: 80px 140px; }
+.inline-expense-editor[data-invalid='true'] .inline-expense-fields {
+  outline: 2px solid #b43b3b;
+  outline-offset: 6px;
+  border-radius: 10px;
+  background: #fff5f4;
+}
+.inline-expense-editor [aria-invalid='true'] { border-color: #b43b3b; }
+.expense-inline-data-error button { min-height: 44px; }
+
+.inline-expense-editor :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--primary-dark);
+  outline-offset: 2px;
 }

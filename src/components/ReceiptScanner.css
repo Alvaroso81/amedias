@@ -21,3 +21,15 @@
 .receipt-photos img { display: block; width: 100%; height: 110px; object-fit: contain; background: #f3f6f4; border-radius: .5rem; }
 .receipt-photos span { display: block; margin-top: .25rem; }
 .receipt-photos button { padding-inline: .25rem; }
+
+.receipt-scanner > button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #7b8d82;
+  border-radius: 12px;
+  color: var(--primary-dark);
+  background: var(--surface);
+  font-weight: 650;
+  cursor: pointer;
+}
+.receipt-scanner > button:disabled { opacity: .6; cursor: not-allowed; }

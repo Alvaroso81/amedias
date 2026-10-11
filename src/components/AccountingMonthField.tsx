@@ -15,6 +15,7 @@ type AccountingMonthFieldProps = {
   automaticValue: string
   disabled?: boolean
   labelledBy?: string
+  errorId?: string
   onChange: (accountingMonth: string) => void
   onUseAutomatic: () => void
 }
@@ -25,6 +26,7 @@ export function AccountingMonthField({
   automaticValue,
   disabled = false,
   labelledBy,
+  errorId,
   onChange,
   onUseAutomatic,
 }: AccountingMonthFieldProps) {
@@ -40,6 +42,8 @@ export function AccountingMonthField({
           value={selectedMonth}
           disabled={disabled}
           aria-label="Mes contable"
+          aria-invalid={Boolean(errorId)}
+          aria-describedby={errorId}
           onChange={(event) =>
             onChange(changeAccountingMonthPart(value, 'month', Number(event.target.value)))
           }
@@ -55,6 +59,8 @@ export function AccountingMonthField({
           value={selectedYear}
           disabled={disabled}
           aria-label="Año contable"
+          aria-invalid={Boolean(errorId)}
+          aria-describedby={errorId}
           onChange={(event) =>
             onChange(changeAccountingMonthPart(value, 'year', Number(event.target.value)))
           }

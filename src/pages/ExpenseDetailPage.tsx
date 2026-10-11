@@ -40,6 +40,7 @@ export function ExpenseDetailPage({
   statusMessage,
   onManageRecurringExpense,
 }: ExpenseDetailPageProps) {
+  const [isEditing, setIsEditing] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -72,7 +73,7 @@ export function ExpenseDetailPage({
   return (
     <div className="expense-detail-page">
       <header className="add-expense-header detail-page-header">
-        <button className="back-button" type="button" onClick={onBack} aria-label="Volver a Gastos">
+        <button className="back-button" type="button" onClick={onBack} disabled={isEditing} aria-label="Volver a Gastos">
           <span aria-hidden="true">←</span>
         </button>
         <h1>Detalle del gasto</h1>
@@ -106,6 +107,7 @@ export function ExpenseDetailPage({
         commonFundEnabled={commonFundEnabled}
         commonFundLoading={commonFundLoading}
         onUpdated={onUpdated}
+        onEditingChange={setIsEditing}
       />
 
       {expense.recurringExpense && (
@@ -129,6 +131,7 @@ export function ExpenseDetailPage({
               )}
               <button
                 type="button"
+                disabled={isEditing}
                 onClick={() => onManageRecurringExpense(expense.recurringExpense!.recurringExpenseId)}
               >
                 Gestionar recurrencia
@@ -173,6 +176,7 @@ export function ExpenseDetailPage({
         <button
           className="delete-expense-button"
           type="button"
+          disabled={isEditing}
           onClick={() => {
             setDeleteError(null)
             setIsDeleteDialogOpen(true)
@@ -181,6 +185,12 @@ export function ExpenseDetailPage({
           Eliminar gasto
         </button>
       </div>
+
+      {!isEditing && (
+        <div className="expense-form-actions expense-form-actions--single" role="group" aria-label="Acciones del gasto">
+          <button className="expense-cancel-button" type="button" onClick={onBack}>Volver a Gastos</button>
+        </div>
+      )}
 
       {isDeleteDialogOpen && (
         <DeleteExpenseDialog

@@ -106,8 +106,8 @@ export function ReceiptScanner({ categories, disabled, onResult }: Props) {
 
   return (
     <section className="receipt-scanner">
-      <button type="button" className="secondary-button" disabled={disabled || busy}
-        onClick={() => { setError(''); dialog.current?.showModal() }}>📷 Escanear ticket</button>
+      <button type="button" className="secondary-button" disabled={disabled || busy} aria-haspopup="dialog"
+        onClick={() => { setError(''); dialog.current?.showModal() }}><span aria-hidden="true">📷</span> Escanear ticket</button>
       {notice && <p className="receipt-notice" role="status">{notice}</p>}
       <dialog ref={dialog} className="receipt-dialog" aria-labelledby="receipt-title"
         onCancel={(event) => { event.preventDefault(); close() }}>

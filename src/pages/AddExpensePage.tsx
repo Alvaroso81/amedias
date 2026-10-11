@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { AccountingMonthField } from '../components/AccountingMonthField'
+import { ExpenseFormActions } from '../components/ExpenseFormActions'
 import { ExpenseSavedConfirmation } from '../components/ExpenseSavedConfirmation'
 import { ReceiptScanner } from '../components/ReceiptScanner'
 import { useExpenseFormData } from '../hooks/useExpenseFormData'
@@ -48,6 +49,16 @@ type AddExpensePageProps = {
 type FormErrors = Partial<
   Record<'amount' | 'description' | 'category' | 'paidBy' | 'split' | 'date' | 'accountingMonth', string>
 >
+
+const expenseFieldLabels: Record<keyof FormErrors, string> = {
+  amount: 'Importe',
+  description: 'Concepto',
+  category: 'Categoría',
+  paidBy: 'Forma de pago',
+  split: 'Reparto',
+  date: 'Fecha',
+  accountingMonth: 'Mes contable',
+}
 
 type SplitValues = Record<string, string>
 
@@ -269,9 +280,12 @@ function ExpenseForm({
     ),
   )
   const [note, setNote] = useState(initialExpense?.note ?? initialDraft?.note ?? '')
+  const formRef = useRef<HTMLFormElement>(null)
+  const submitErrorRef = useRef<HTMLParagraphElement>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const saveInFlight = useRef(false)
   const [savedExpense, setSavedExpense] = useState<SavedExpenseSummary | null>(null)
 
   const canBePersonal =
@@ -356,6 +370,15 @@ function ExpenseForm({
     return () => window.clearTimeout(returnTimer)
   }, [isEditing, onCreated, savedExpense])
 
+  useEffect(() => {
+    if (!submitError) return
+    submitErrorRef.current?.focus({ preventScroll: true })
+    submitErrorRef.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'center',
+    })
+  }, [submitError])
+
   const clearError = (field: keyof FormErrors) => {
     setErrors((currentErrors) => {
       if (!currentErrors[field]) return currentErrors
@@ -372,6 +395,25 @@ function ExpenseForm({
       updateExpenseSplitPercentages(members, currentSplit, userId, value),
     )
   }
+
+  const focusInvalidField = (field?: keyof FormErrors) => {
+    const group = formRef.current?.querySelector<HTMLElement>(field
+      ? `[data-expense-field="${field}"]`
+      : '[data-expense-field][data-invalid="true"]')
+    if (!group) return
+
+    const control = group.querySelector<HTMLElement>('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')
+      ?? group.querySelector<HTMLElement>('button:not(:disabled)')
+      ?? group
+    control.focus({ preventScroll: true })
+    group.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'center',
+    })
+  }
+
+  const invalidFields = (Object.keys(expenseFieldLabels) as (keyof FormErrors)[])
+    .filter((field) => errors[field])
 
   const validateForm = () => {
     const nextErrors: FormErrors = {}
@@ -427,15 +469,21 @@ function ExpenseForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (saveInFlight.current) return
     setSubmitError(null)
 
-    if (!validateForm()) return
+    if (!validateForm()) {
+      // Wait for React to render the error messages before scrolling/focusing.
+      window.requestAnimationFrame(() => focusInvalidField())
+      return
+    }
 
     const numericAmount = Number(amount)
     const selectedCategory = categories.find((category) => category.id === categoryId)
 
     if (!selectedCategory || (!usesCommonFund && !selectedPayer)) return
 
+    saveInFlight.current = true
     setIsSaving(true)
 
     try {
@@ -508,6 +556,7 @@ function ExpenseForm({
             : 'No hemos podido guardar el gasto. Inténtalo de nuevo.',
       )
     } finally {
+      saveInFlight.current = false
       setIsSaving(false)
     }
   }
@@ -527,6 +576,7 @@ function ExpenseForm({
         onBack={onBack}
         title={title ?? (isEditing ? 'Editar gasto' : 'Nuevo gasto')}
         isEditing={isEditing}
+        disabled={isSaving}
       />
 
       {!isEditing && !initialDraft && !createAction && (
@@ -544,8 +594,8 @@ function ExpenseForm({
           }} />
       )}
 
-      <form className="add-expense-form" onSubmit={handleSubmit} noValidate>
-        <section className="card amount-card">
+      <form className="add-expense-form" ref={formRef} aria-label={isEditing ? 'Editar gasto' : 'Nuevo gasto'} aria-busy={isSaving} onSubmit={handleSubmit} noValidate>
+        <section className="card amount-card" data-expense-field="amount" data-invalid={Boolean(errors.amount)} tabIndex={-1}>
           <label htmlFor="expense-amount">Importe</label>
           <div className="amount-input-wrap">
             <input
@@ -575,7 +625,7 @@ function ExpenseForm({
         </section>
 
         <section className="card form-card">
-          <div className="form-field">
+          <div className="form-field" data-expense-field="description" data-invalid={Boolean(errors.description)} tabIndex={-1}>
             <label htmlFor="expense-description">Concepto</label>
             <input
               id="expense-description"
@@ -600,7 +650,7 @@ function ExpenseForm({
 
           <div className="form-divider" />
 
-          <div className="form-field">
+          <div className="form-field" data-expense-field="category" data-invalid={Boolean(errors.category)} tabIndex={-1}>
             <label htmlFor="expense-category">Categoría</label>
             <div className="select-wrap">
               <select
@@ -637,7 +687,9 @@ function ExpenseForm({
         </section>
 
         <section className="card form-card sharing-card">
-          <fieldset className="form-field form-fieldset">
+          <fieldset className="form-field form-fieldset" data-expense-field="paidBy"
+            data-invalid={Boolean(errors.paidBy)} tabIndex={-1}
+            aria-invalid={Boolean(errors.paidBy)} aria-describedby={errors.paidBy ? 'expense-payer-error' : undefined}>
             <legend>¿Cómo se ha pagado?</legend>
             <div className="segmented-control payer-control">
               <button
@@ -666,6 +718,7 @@ function ExpenseForm({
                   aria-pressed={!usesCommonFund && effectivePayerId === member.userId}
                   key={member.userId}
                   onClick={() => {
+                    if (fundHasInsufficientBalance) clearError('amount')
                     setPaymentSource('member')
                     setPaidByUserId(member.userId)
                     clearError('paidBy')
@@ -675,7 +728,7 @@ function ExpenseForm({
                 </button>
               ))}
             </div>
-            {errors.paidBy && <p className="field-error">{errors.paidBy}</p>}
+            {errors.paidBy && <p className="field-error" id="expense-payer-error">{errors.paidBy}</p>}
             <p className="fund-payment-balance" hidden={!usesCommonFund}>
               Fondo disponible: <strong>{commonFundLoading ? 'Cargando…' : formatCurrency(commonFundBalance)}</strong>
             </p>
@@ -689,7 +742,9 @@ function ExpenseForm({
 
           <div className="form-divider" />
 
-          <fieldset className="form-field form-fieldset split-fieldset">
+          <fieldset className="form-field form-fieldset split-fieldset" data-expense-field="split"
+            data-invalid={Boolean(errors.split)} tabIndex={-1}
+            aria-invalid={Boolean(errors.split)} aria-describedby={errors.split ? 'expense-split-error' : undefined}>
             <legend>¿Cómo se reparte?</legend>
             {!usesCommonFund && !locksPersonal ? (
               <>
@@ -790,7 +845,7 @@ function ExpenseForm({
 
           <div className="form-divider" />
 
-          <div className="form-field">
+          <div className="form-field" data-expense-field="date" data-invalid={Boolean(errors.date)} tabIndex={-1}>
             <label htmlFor="expense-date">Fecha</label>
             <input
               id="expense-date"
@@ -823,7 +878,7 @@ function ExpenseForm({
 
           <div className="form-divider" />
 
-          <div className="form-field">
+          <div className="form-field" data-expense-field="accountingMonth" data-invalid={Boolean(errors.accountingMonth)} tabIndex={-1}>
             <label id="expense-accounting-month-label">Mes contable</label>
             {useAutomaticAccountingMonth ? (
               <>
@@ -837,6 +892,7 @@ function ExpenseForm({
                   value={accountingMonth}
                   automaticValue={automaticAccountingMonth}
                   labelledBy="expense-accounting-month-label"
+                  errorId={errors.accountingMonth ? 'expense-accounting-month-error' : undefined}
                   disabled={isSaving}
                   onChange={(nextAccountingMonth) => {
                     setAccountingMonth(nextAccountingMonth)
@@ -852,7 +908,7 @@ function ExpenseForm({
                 <p className="accounting-month-help">Se usa en totales y estadísticas; no cambia la fecha real.</p>
               </>
             )}
-            {errors.accountingMonth && <p className="field-error" role="alert">{errors.accountingMonth}</p>}
+            {errors.accountingMonth && <p className="field-error" id="expense-accounting-month-error">{errors.accountingMonth}</p>}
           </div>
 
           <div className="form-divider" />
@@ -869,15 +925,30 @@ function ExpenseForm({
           </div>
         </section>
 
+        {invalidFields.length > 0 && (
+          <div className="expense-validation-summary" role="alert">
+            <strong>No se ha guardado el gasto</strong>
+            <p>{invalidFields.length === 1 ? 'Revisa este campo para continuar:' : `Revisa estos ${invalidFields.length} campos para continuar:`}</p>
+            <ul>
+              {invalidFields.map((field) => (
+                <li key={field}>
+                  <button type="button" onClick={() => focusInvalidField(field)}>
+                    <strong>{expenseFieldLabels[field]}:</strong> {errors[field]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {submitError && (
-          <p className="expense-submit-error" role="alert">
+          <p ref={submitErrorRef} className="expense-submit-error" role="alert" tabIndex={-1}>
             {submitError}
           </p>
         )}
 
-        <button className="save-expense-button" type="submit" disabled={isSaving || fundHasInsufficientBalance}>
-          {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar gasto'}
-        </button>
+        <ExpenseFormActions onCancel={onBack} isSaving={isSaving}
+          saveLabel={isEditing ? 'Guardar cambios' : 'Guardar gasto'} />
       </form>
     </div>
   )
@@ -887,15 +958,17 @@ type ExpensePageHeaderProps = {
   title: string
   onBack: () => void
   isEditing?: boolean
+  disabled?: boolean
 }
 
-function ExpensePageHeader({ title, onBack, isEditing = false }: ExpensePageHeaderProps) {
+function ExpensePageHeader({ title, onBack, isEditing = false, disabled = false }: ExpensePageHeaderProps) {
   return (
     <header className="add-expense-header">
       <button
         className="back-button"
         type="button"
         onClick={onBack}
+        disabled={disabled}
         aria-label={isEditing ? 'Volver al detalle del gasto' : 'Volver a Inicio'}
       >
         <span aria-hidden="true">←</span>

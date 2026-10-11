@@ -30,6 +30,9 @@ export function BottomNavigation({
   const isExpensesSection = ['expenses', 'expense-detail'].includes(currentPage)
   const isSettingsSection = ['settings', 'settlements', 'settlement-detail', 'recurring-expenses', 'recurring-occurrence'].includes(currentPage)
 
+  // Expense screens provide their own contextual actions instead of global navigation.
+  if (['add-expense', 'recurring-occurrence', 'expense-detail'].includes(currentPage)) return null
+
   return (
     <nav className="bottom-navigation" aria-label="Navegación principal">
       <NavItem {...home} active={isHomeSection} onClick={onGoHome} />
